@@ -1,0 +1,3 @@
+curl -s -i http://localhost:3902/rpc \
+  -H 'Content-Type: application/json' \
+  -d '{"call":"createProduct","name":"ぶどう"}'

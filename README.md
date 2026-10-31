@@ -13,7 +13,7 @@
 | `docs/glossary.yaml` | 用語集 (文書で使う語・コードの名前・使わない語) |
 | `examples/domain/` | ドメインモデルの例 (消費税額の計算例) |
 | `tools/echo-server/` | 受け取ったリクエストを、そのまま JSON で返すサーバー (第 2 章) |
-| `tools/product-server/` | 商品を ID と名前だけで持つ、手書きのサーバー (第 3 章) |
+| `tools/product-server/` | 商品を ID と名前だけで持つ、手書きのサーバー。リソースの URL と RPC 風の口 (`/rpc`) を持つ (第 3 章・第 7 章) |
 | `test/acceptance.test.ts` | 受け入れ条件のテスト。中身は、注文の API を実装するときに書く |
 | `test/requirements.test.ts` | 受け入れ条件の文書と、受け入れ条件のテストの名前がそろっていることを確かめるテスト |
 | `test/glossary.test.ts` | `docs/` の文書に、用語集の使わない語が無いことを確かめるテスト |
