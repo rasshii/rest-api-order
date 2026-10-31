@@ -14,6 +14,7 @@ import {
   assertAlive,
   assertPortFree,
   countWithFind,
+  curlUserAgent,
   findServersFileProblems,
   lastLine,
   listSnippets,
@@ -123,6 +124,13 @@ describe('サーバーとポート', () => {
       const result = runCurl(readFileSync(`${fixtures}ch00-get.curl`, 'utf8'), root);
       expect(normalizeOutput(result.stdout)).toBe(readFileSync(`${fixtures}ch00-get.out`, 'utf8'));
       expect(lastLine(result.stdout)).toBe('200');
+      /*
+       * テストの curl は、curl の版に関わらず決まった User-Agent を送る。
+       * 素の curl の値と区別できる値で、設定ファイルの仕組みそのものを確かめる (curl が 8.18.0 の機では、
+       * 既定の値で確かめても、仕組みが効いていなくても通ってしまう)。
+       */
+      expect(runCurl(`curl -s http://localhost:${port}/ua`, root, 'snippet-test/1.0').stdout).toBe('snippet-test/1.0\n');
+      expect(runCurl(`curl -s http://localhost:${port}/ua`, root).stdout).toBe(`${curlUserAgent}\n`);
     } finally {
       await stopServer(server);
     }

@@ -5,7 +5,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { closeSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { closeSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,7 +29,7 @@ export interface Snippet {
   file: string;
 }
 
-/** snippets のディレクトリの .curl と .cmd を、ファイル名の順に返す。 */
+/** snippets のディレクトリの .curl と .cmd を、ファイル名の順 (名前が ch<章>-<順>-<内容> なので、章ごとに記事の順) に返す。 */
 export function listSnippets(dir: string): Snippet[] {
   return readdirSync(dir)
     .filter((f) => f.endsWith('.curl') || f.endsWith('.cmd'))
@@ -205,12 +205,34 @@ async function isPortFree(port: number): Promise<boolean> {
   }
 }
 
-/** curl を本物の curl で実行する。比べるのは標準出力だけ。 */
-export function runCurl(command: string, cwd: string): { stdout: string; status: number } {
-  const result = spawnSync('bash', ['-c', command], { cwd, encoding: 'utf8', timeout: 60_000 });
-  if (result.error) throw result.error;
-  if (result.status === null) throw new Error(`curl がシグナル ${result.signal} で終わった`);
-  return { stdout: result.stdout, status: result.status };
+/** テストの curl が送る User-Agent。記事の結果もこの値で載せる。 */
+export const curlUserAgent = 'curl/8.18.0';
+
+/**
+ * curl を本物の curl で実行する。比べるのは標準出力だけ。
+ * User-Agent は curl の版で変わり、エコーサーバーの応答の本文と Content-Length も変わるので、
+ * 設定ファイル ($CURL_HOME/.curlrc) で決まった値にする。実行する人の ~/.curlrc も読まなくなる。
+ */
+export function runCurl(
+  command: string,
+  cwd: string,
+  userAgent: string = curlUserAgent,
+): { stdout: string; status: number } {
+  const curlHome = mkdtempSync(join(tmpdir(), 'snippet-curl-'));
+  try {
+    writeFileSync(join(curlHome, '.curlrc'), `user-agent = "${userAgent}"\n`);
+    const result = spawnSync('bash', ['-c', command], {
+      cwd,
+      encoding: 'utf8',
+      timeout: 60_000,
+      env: { ...process.env, CURL_HOME: curlHome },
+    });
+    if (result.error) throw result.error;
+    if (result.status === null) throw new Error(`curl がシグナル ${result.signal} で終わった`);
+    return { stdout: result.stdout, status: result.status };
+  } finally {
+    rmSync(curlHome, { recursive: true, force: true });
+  }
 }
 
 /**
