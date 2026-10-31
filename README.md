@@ -9,6 +9,7 @@
 | パス | 中身 |
 | --- | --- |
 | `tools/echo-server/` | 受け取ったリクエストを、そのまま JSON で返すサーバー (第 2 章) |
+| `tools/product-server/` | 商品を ID と名前だけで持つ、手書きのサーバー (第 3 章) |
 | `test/snippets/` | 記事に載せた curl とコマンドと、その結果の期待値 |
 | `test/snippets.test.ts` | `test/snippets/` の curl とコマンドを実行し、出力を期待値と比べるテスト |
 | `test/support/` | 上のテストが使う、実行と比較の処理 |

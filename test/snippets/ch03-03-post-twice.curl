@@ -1,0 +1,3 @@
+curl -s http://localhost:3902/products http://localhost:3902/products \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"ぶどう"}'
