@@ -1,0 +1,3 @@
+curl -s -w '%{http_code}\n' http://localhost:3902/products \
+  -H 'Content-Type: application/json' \
+  -d '{"name":'

@@ -1,6 +1,7 @@
 {
   "servers": {
-    "ch02-echo-server": { "port": 3901, "ready": { "http": "/" } }
+    "ch02-echo-server": { "port": 3901, "ready": { "http": "/" } },
+    "ch03-product-server": { "port": 3902, "ready": { "http": "/products" } }
   },
   "commands": {}
 }
