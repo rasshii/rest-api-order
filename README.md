@@ -10,8 +10,8 @@
 | --- | --- |
 | `test/snippets/` | 記事に載せた curl とコマンドと、その結果の期待値 |
 | `test/snippets.test.ts` | `test/snippets/` の curl とコマンドを実行し、出力を期待値と比べるテスト |
-| `test/support/` | 上のテストが使う、実行と比較の土台 |
-| `test/harness.test.ts` | 土台の自己テスト (`test/fixtures/` の試しのファイルを使う) |
+| `test/support/` | 上のテストが使う、実行と比較の処理 |
+| `test/harness.test.ts` | 実行と比較の処理のテスト (`test/fixtures/` の試しのファイルを使う) |
 
 ## 動かすのに要るもの
 

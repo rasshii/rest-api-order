@@ -1,4 +1,4 @@
-// 照合の土台の自己テストで起動する、どのリクエストにも 200 と ok を返すサーバー。
+// 実行と比較の処理のテスト (harness.test.ts) で起動する、どのリクエストにも 200 と ok を返すサーバー。
 import { createServer } from 'node:http';
 
 const port = Number(process.argv[2]);
