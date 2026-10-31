@@ -1,0 +1,16 @@
+{
+  // .ts を Node.js の型の除去でそのまま動かし、tsc は型の検査だけをする。
+  // 型の除去が受けない書き方 (enum・パラメータプロパティ・type を付けない型の import) を tsc でも落とすための組で、
+  // Node.js の文書 (nodejs.org/api/typescript.html) の推奨に合わせている。
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "esnext",
+    "module": "nodenext",
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "strict": true,
+    "types": ["node"]
+  },
+  "include": ["tools", "test", "vitest.config.ts"]
+}

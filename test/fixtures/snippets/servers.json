@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "ch00-web": { "port": 4599, "ready": { "http": "/" } }
+  },
+  "commands": {
+    "ch00-list": []
+  }
+}

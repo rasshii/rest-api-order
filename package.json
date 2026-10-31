@@ -1,0 +1,21 @@
+{
+  "name": "rest-api-order",
+  "version": "0.0.0",
+  "private": true,
+  "description": "REST API 設計・実装ガイドのサンプルリポジトリ",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "26"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run",
+    "verify": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}
