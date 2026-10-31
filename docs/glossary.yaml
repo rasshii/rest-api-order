@@ -8,13 +8,30 @@ terms:
   - name: 注文
     code: Order
     definition: 1 回の購入の依頼。1 つ以上の注文明細を持つ。
+  - name: 注文 ID
+    code: orderId
+    definition: 注文を 1 件ずつ見分ける ID。購入者は、注文を確かめるときにこの ID を使う。
   - name: 注文明細
     code: OrderLine
     definition: 注文に含まれる 1 行。どの商品を、いくつ、いくらで買うかを持つ。
     avoid: [OrderItem]
+  - name: 数量
+    code: quantity
+    definition: 注文明細では頼む商品の個数、在庫では注文に引き当てられる個数。
+  - name: 合計
+    code: total
+    definition: 注文の、注文明細ごとの単価と数量の積の和。消費税を含んだ円の整数。
   - name: 商品
     code: Product
     definition: 注文できる品物の 1 種類。
+  - name: 商品 ID
+    code: productId
+    definition: 商品を 1 種類ずつ見分ける ID。注文明細と在庫は、商品をこの ID で指す。
+  - name: 商品名
+    code: name
+    definition: 商品の名前。購入者が商品を見分けるために表示する。
+  - name: 金額
+    definition: 円の整数で表したお金の額。価格・単価・合計・消費税額は、どれも金額で表す。
   - name: 在庫
     code: Inventory
     definition: 商品ごとに持つ、注文に引き当てられる数量。
@@ -36,6 +53,9 @@ terms:
   - name: 引き当て
     code: allocate
     definition: 注文明細の数量を、その商品の在庫から差し引くこと。差し引かずに押さえておく別の仕組みと紛れるので、確保・予約・reserve とは呼ばない。
+  - name: 状態
+    code: status
+    definition: 注文が、受け付けてから終わるまでのどこにいるかを表すもの。1 周目は受付だけ。
   - name: 受付
     code: PENDING
     definition: 作られた直後の注文の状態。この状態を、保留・未確定とは呼ばない。
