@@ -1,0 +1,43 @@
+{
+  "rounding": "floor",
+  "examples": [
+    {
+      "name": "税率ごとに注文明細が 1 つずつで、端数が出ない",
+      "lines": [
+        { "product": "りんご", "unitPrice": 1080, "quantity": 2, "taxRate": 8 },
+        { "product": "保存容器", "unitPrice": 1650, "quantity": 1, "taxRate": 10 }
+      ],
+      "total": 3810,
+      "taxByRate": [
+        { "taxRate": 8, "total": 2160, "taxAmount": 160 },
+        { "taxRate": 10, "total": 1650, "taxAmount": 150 }
+      ],
+      "taxAmount": 310
+    },
+    {
+      "name": "同じ税率の注文明細が 2 つあり、端数が出る",
+      "lines": [
+        { "product": "パン", "unitPrice": 1050, "quantity": 1, "taxRate": 8 },
+        { "product": "ジャム", "unitPrice": 1050, "quantity": 1, "taxRate": 8 }
+      ],
+      "total": 2100,
+      "taxByRate": [
+        { "taxRate": 8, "total": 2100, "taxAmount": 155 }
+      ],
+      "taxAmount": 155
+    },
+    {
+      "name": "2 つの税率で端数が出て、端数の和が 1 円を超える",
+      "lines": [
+        { "product": "パン", "unitPrice": 1050, "quantity": 2, "taxRate": 8 },
+        { "product": "マグカップ", "unitPrice": 999, "quantity": 1, "taxRate": 10 }
+      ],
+      "total": 3099,
+      "taxByRate": [
+        { "taxRate": 8, "total": 2100, "taxAmount": 155 },
+        { "taxRate": 10, "total": 999, "taxAmount": 90 }
+      ],
+      "taxAmount": 245
+    }
+  ]
+}
