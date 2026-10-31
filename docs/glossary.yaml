@@ -1,0 +1,68 @@
+# 注文 API の用語集。要件・モデル・仕様・コードで、同じものを同じ語で呼ぶための一覧。
+# name は文書で使う語、code はコードで使う名前 (決めたものだけ)、avoid はこの語の代わりに使わない語。
+# avoid には、どの文脈でも使わない語だけを書く。文脈で使い分けること (注文明細の金額を「価格」と呼ばないなど) は definition に書く。
+# test/glossary.test.ts が、docs/ の .md に avoid の語が無いことを、書いたとおりの文字の並びで探して確かめる (大文字小文字・全角半角はそろえない)。
+# allowed には、avoid の語を含むが、別の意味の語として使ってよい語を書く (ユーザーストーリーの中のユーザーなど)。
+allowed: [ユーザーストーリー, ユーザーエージェント]
+terms:
+  - name: 注文
+    code: Order
+    definition: 1 回の購入の依頼。1 つ以上の注文明細を持つ。
+  - name: 注文明細
+    code: OrderLine
+    definition: 注文に含まれる 1 行。どの商品を、いくつ、いくらで買うかを持つ。
+    avoid: [OrderItem]
+  - name: 商品
+    code: Product
+    definition: 注文できる品物の 1 種類。
+  - name: 在庫
+    code: Inventory
+    definition: 商品ごとに持つ、注文に引き当てられる数量。
+    avoid: [Stock]
+  - name: 価格
+    code: price
+    definition: 商品 1 個あたりの、消費税を含んだ金額。円の整数で持つ。
+    avoid: [税込価格, 売価]
+  - name: 単価
+    code: unitPrice
+    definition: 注文明細が持つ、注文した時点の商品の価格を写した金額。後で商品の価格が変わっても変わらない。注文明細の金額を価格とは呼ばない。
+  - name: 税率
+    code: taxRate
+    definition: 商品に適用する消費税の率。標準税率 (10%) と軽減税率 (8%) の 2 つがある。
+  - name: 消費税額
+    code: taxAmount
+    definition: 注文の合計に含まれる消費税の額。税率ごとに、合計から割り戻して求める。
+    avoid: [税額, 外税]
+  - name: 引き当て
+    code: allocate
+    definition: 注文明細の数量を、その商品の在庫から差し引くこと。差し引かずに押さえておく別の仕組みと紛れるので、確保・予約・reserve とは呼ばない。
+  - name: 受付
+    code: PENDING
+    definition: 作られた直後の注文の状態。この状態を、保留・未確定とは呼ばない。
+  - name: 取り消し
+    code: cancel
+    definition: 注文を、購入の依頼として無効にすること。注文は消さずに、取消の状態で残る。
+    avoid: [キャンセル]
+  - name: 入荷
+    definition: 仕入れた商品が届き、その数量を在庫に足すこと。
+    avoid: [補充, restock]
+  - name: 購入者
+    definition: 注文して代金を払う人。
+    avoid: [顧客, 購入した人]
+  - name: 会員
+    definition: アカウントを持ち、ログインして注文する購入者。
+    avoid: [ユーザー]
+  - name: 管理者
+    definition: 店の側で、商品・在庫・注文を扱う人。
+  - name: 連絡先メールアドレス
+    code: contactEmail
+    definition: 注文が持つ、購入者へ連絡するためのメールアドレス。会員の概念が出てくるまでは、注文の持ち主を表す唯一の情報。
+  - name: 追跡 ID
+    definition: 500 のエラーを返すときに 1 件ごとに作り、レスポンスと例外のログの両方に載せる ID。1 つのリクエストを通して付ける相関 ID とは別のもの。
+    avoid: [エラー ID]
+  - name: 決済
+    definition: 注文 1 件の代金を払う手続き。
+  - name: 連携先
+    definition: 注文の状態の変化を受け取る外部のシステム。
+  - name: 取り込み
+    definition: 商品と在庫を、ファイルからまとめて登録すること。道具にファイルを読ませる操作は読み込みと呼ぶ。この登録をインポートとは呼ばない。
