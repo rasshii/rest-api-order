@@ -9,10 +9,13 @@
 | パス | 中身 |
 | --- | --- |
 | `docs/requirements/` | 要件 (ストーリーと受け入れ条件・ユースケース・機能でない要件・1 周目に入れないもの) |
+| `docs/model/` | モデルの記録 (イベントストーミングのボードと、ホットスポットで決めたこと) |
+| `docs/glossary.yaml` | 用語集 (文書で使う語・コードの名前・使わない語) |
 | `tools/echo-server/` | 受け取ったリクエストを、そのまま JSON で返すサーバー (第 2 章) |
 | `tools/product-server/` | 商品を ID と名前だけで持つ、手書きのサーバー (第 3 章) |
 | `test/acceptance.test.ts` | 受け入れ条件のテスト。中身は、注文の API を実装するときに書く |
 | `test/requirements.test.ts` | 受け入れ条件の文書と、受け入れ条件のテストの名前がそろっていることを確かめるテスト |
+| `test/glossary.test.ts` | `docs/` の文書に、用語集の使わない語が無いことを確かめるテスト |
 | `test/snippets/` | 記事に載せた curl とコマンドと、その結果の期待値 |
 | `test/snippets.test.ts` | `test/snippets/` の curl とコマンドを実行し、出力を期待値と比べるテスト |
 | `test/support/` | 上のテストが使う、実行と比較の処理 |
