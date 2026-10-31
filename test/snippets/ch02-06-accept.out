@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "url": "/orders",
+  "headers": {
+    "host": "localhost:3901",
+    "user-agent": "curl/8.18.0",
+    "accept": "application/json"
+  },
+  "body": ""
+}

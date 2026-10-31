@@ -1,4 +1,6 @@
 {
-  "servers": {},
+  "servers": {
+    "ch02-echo-server": { "port": 3901, "ready": { "http": "/" } }
+  },
   "commands": {}
 }
