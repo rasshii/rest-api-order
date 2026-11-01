@@ -50,8 +50,8 @@
 
 - リクエストの本文は、`Content-Type: application/json` で送る。メディアタイプ (パラメータを除いた type と subtype を、大文字小文字を区別せずに比べる) が `application/json` でなければ 415 を返し、応答の `Accept` ヘッダに `application/json` を書く
 - 成功の応答の本文は、`application/json` で返す。`charset` のパラメータは付けない
-- リクエストの `Accept` が `application/json` を受け入れないなら、406 を返す。`Accept` が無ければ、`application/json` で返す
-- 誤りの応答のメディアタイプと `Accept` の関係は、誤りの返し方と一緒に決める
+- リクエストの `Accept` が `application/json` を受け入れないなら、406 を返す。`application/json` に当たるメディア範囲のうち最も具体的なもの (`application/json`・`application/*`・`*/*` の順) の `q` が 0 か、当たる範囲が無ければ、受け入れないとみなす。メディア範囲の type と subtype は大文字小文字を区別せずに比べ、`q` のほかのパラメータは見ない。`Accept` が無ければ、`application/json` で返す
+- 誤りの応答は、`Accept` に関わらず `application/problem+json` で返す (`problems.md`)
 
 ## 選ばなかった案
 

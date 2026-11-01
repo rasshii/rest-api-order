@@ -1,0 +1,7 @@
+{
+  "type": "/problems/unknown-product",
+  "title": "Unknown product",
+  "status": 400,
+  "detail": "1 product in the order is not registered.",
+  "productIds": ["01a0f4c2-d1a0-7c33-b874-5ebf20314c56"]
+}

@@ -6,8 +6,8 @@
 
 | メソッドとパス | 操作の名前 | 成功したとき | 失敗したとき |
 | --- | --- | --- | --- |
-| `POST /orders` | `placeOrder` | 201。`Location` に作った注文の URL (`/orders/{orderId}`)、本文に注文の表現 | 入力の誤り・登録されていない商品・在庫が足りない。ステータスコードと本文の形は、エラーの設計で決める |
-| `GET /orders/{orderId}` | `getOrder` | 200。本文に注文の表現 | その注文 ID の注文が無いと 404 |
+| `POST /orders` | `placeOrder` | 201。`Location` に作った注文の URL (`/orders/{orderId}`)、本文に注文の表現 | 入力の誤り・登録されていない商品・在庫の不足は、どれも 400。本文の形は `problems.md` |
+| `GET /orders/{orderId}` | `getOrder` | 200。本文に注文の表現 | その注文 ID の注文が無いと 404。本文の形は `problems.md` |
 
 ## リソース
 
