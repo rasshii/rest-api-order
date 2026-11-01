@@ -1,0 +1,20 @@
+# ユースケースから API の操作までの対応表。
+# useCase は docs/requirements/use-cases.md の「ユースケース:」の見出し、command と readModel は docs/model/event-storming.md のボードの付箋、
+# aggregateMethod は docs/model/domain-model.md のクラス図のメソッド、method と path と operationId は docs/api-design/endpoints.md の一覧にそろえる。
+# operationId は、API の仕様で操作の名前に使う。
+# 状態を変えるユースケースは command と aggregateMethod を持ち、読むだけのユースケースは readModel を持つ。
+# aggregateMethod には、コマンドを受ける集約のメソッドを 1 つ書く (同じコマンドで変わるほかの集約のメソッドは書かない)。
+# 1 周目は、1 つのユースケースを 1 つの操作に写す。
+# test/operations.test.ts が、この表と上の文書が食い違わないことを確かめる。アプリは実行時にこのファイルを読まない。
+operations:
+  - useCase: 注文する
+    command: 注文する
+    aggregateMethod: Order.place
+    method: POST
+    path: /orders
+    operationId: placeOrder
+  - useCase: 注文を確かめる
+    readModel: 注文の内容と状態
+    method: GET
+    path: /orders/{orderId}
+    operationId: getOrder

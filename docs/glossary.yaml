@@ -8,6 +8,9 @@ terms:
   - name: 注文
     code: Order
     definition: 1 回の購入の依頼。1 つ以上の注文明細を持つ。
+  - name: 注文する
+    code: place
+    definition: 購入者が、商品と数量の組と連絡先メールアドレスを送り、注文を受付の状態で作ること。
   - name: 注文 ID
     code: orderId
     definition: 注文を 1 件ずつ見分ける ID。購入者は、注文を確かめるときにこの ID を使う。
