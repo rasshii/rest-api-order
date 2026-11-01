@@ -1,0 +1,7 @@
+{
+  "contactEmail": "taro.test@example.com",
+  "lines": [
+    { "productId": "01a0f4c2-c400-7a11-8b52-3c9d0e1f2a34", "quantity": 2 },
+    { "productId": "01a0f4c2-c7e8-7b22-a963-4dae1f203b45", "quantity": 1 }
+  ]
+}

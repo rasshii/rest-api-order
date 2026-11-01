@@ -14,6 +14,9 @@ terms:
   - name: 注文 ID
     code: orderId
     definition: 注文を 1 件ずつ見分ける ID。購入者は、注文を確かめるときにこの ID を使う。
+  - name: 注文日時
+    code: placedAt
+    definition: 注文を受け付けた日時。
   - name: 注文明細
     code: OrderLine
     definition: 注文に含まれる 1 行。どの商品を、いくつ、いくらで買うかを持つ。
