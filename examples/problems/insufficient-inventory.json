@@ -1,0 +1,7 @@
+{
+  "type": "/problems/insufficient-inventory",
+  "title": "Insufficient inventory",
+  "status": 400,
+  "detail": "1 product in the order does not have enough inventory.",
+  "productIds": ["01a0f4c2-c7e8-7b22-a963-4dae1f203b45"]
+}

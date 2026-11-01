@@ -1,0 +1,7 @@
+{
+  "type": "/problems/internal-error",
+  "title": "Unexpected error",
+  "status": 500,
+  "detail": "Include the trackingId when you contact us.",
+  "trackingId": "4f3a9c2e-7b1d-4e8a-9c05-2d6b8f1e3a70"
+}

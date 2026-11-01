@@ -84,6 +84,7 @@ terms:
     code: contactEmail
     definition: 注文が持つ、購入者へ連絡するためのメールアドレス。会員の概念が出てくるまでは、注文の持ち主を表す唯一の情報。
   - name: 追跡 ID
+    code: trackingId
     definition: 500 のエラーを返すときに 1 件ごとに作り、レスポンスと例外のログの両方に載せる ID。1 つのリクエストを通して付ける相関 ID とは別のもの。
     avoid: [エラー ID]
   - name: 決済
