@@ -1,0 +1,1 @@
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' http://localhost:3903/openapi.yaml

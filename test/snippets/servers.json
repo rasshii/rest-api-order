@@ -1,7 +1,8 @@
 {
   "servers": {
     "ch02-echo-server": { "port": 3901, "ready": { "http": "/" } },
-    "ch03-product-server": { "port": 3902, "ready": { "http": "/products" } }
+    "ch03-product-server": { "port": 3902, "ready": { "http": "/products" } },
+    "ch11-swagger-ui": { "port": 3903, "ready": { "http": "/" } }
   },
   "commands": {}
 }

@@ -1,0 +1,476 @@
+# 注文 API の仕様。docs/api-design/ の決まり (エンドポイント・表現・誤りの応答) を、道具が読める形に写したもの。
+# components/examples の例は、examples/ の同じ名前のファイルと同じ値にする。
+# test/openapi.test.ts が、操作が対応表と、キーが表現の決まりのキーの表と一致し、例がファイルと同じでスキーマに合うことを確かめる。
+openapi: 3.1.2
+info:
+  title: 注文 API
+  version: 0.1.0
+  description: |
+    EC の注文システムの API。注文する・注文を確かめるの 2 つの操作を持つ。
+
+    - 認証は無い。注文 ID を知っていれば、その注文を読める
+    - 応答には後からキーを足す。クライアントは、知らないキーを無視する
+    - 誤りの応答は、`Accept` に関わらず問題の詳細 (`application/problem+json`、RFC 9457) で返す。クライアントには `Accept: application/json, application/problem+json` を送ることを勧める
+    - 操作の外の失敗も問題の詳細で返す。エンドポイントの一覧に無いパスは 404、パスはあるがそのパスで受け付けないメソッドは 405 (`Allow` にそのパスで受け付けるメソッドを並べる)
+    - ここに書いていないステータスコード (中継の部品が返すものなど) も返りうる
+  license:
+    name: MIT
+    identifier: MIT
+tags:
+  - name: orders
+    description: 注文
+paths:
+  /orders:
+    post:
+      tags: [orders]
+      operationId: placeOrder
+      summary: 注文する
+      description: 商品と数量の組と連絡先メールアドレスを受け取り、注文を受付の状態で作る。商品の今の価格を単価として注文明細に写し、合計と消費税額を求め、在庫を引き当てる。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+            examples:
+              place-order-request:
+                $ref: '#/components/examples/place-order-request'
+      responses:
+        '201':
+          description: 注文を受け付けた。本文は作った注文の表現。
+          headers:
+            Location:
+              description: 作った注文の URL。相対参照 (`/orders/{orderId}`) で返す。
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+              example: /orders/01a194b4-978e-7c3a-9f21-6d4b8e2a1c05
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              examples:
+                order:
+                  $ref: '#/components/examples/order'
+        '400':
+          description: |
+            注文を受け付けなかった。どの失敗かは `type` で見分ける。
+
+            - `/problems/invalid-request`: 本文の形か値の誤り
+            - `/problems/unknown-product`: 登録されていない商品がある
+            - `/problems/insufficient-inventory`: 在庫が数量より少ない商品がある
+
+            複数の失敗があるときは、本文の形・商品・在庫の順に確かめ、最初に当たった失敗だけを返す。
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/PlaceOrderBadRequestProblem'
+              examples:
+                invalid-request:
+                  $ref: '#/components/examples/invalid-request'
+                unknown-product:
+                  $ref: '#/components/examples/unknown-product'
+                insufficient-inventory:
+                  $ref: '#/components/examples/insufficient-inventory'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '415':
+          description: 本文のメディアタイプが `application/json` でない。
+          headers:
+            Accept:
+              description: 受け付ける本文のメディアタイプ。
+              required: true
+              schema:
+                type: string
+              example: application/json
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/UnsupportedMediaTypeProblem'
+              examples:
+                unsupported-media-type:
+                  $ref: '#/components/examples/unsupported-media-type'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}:
+    parameters:
+      - name: orderId
+        in: path
+        required: true
+        description: 注文するの応答の `orderId` を、そのまま入れる。注文 ID の形でない値も、その注文 ID の注文が無いものとして 404 になる。
+        schema:
+          $ref: '#/components/schemas/OrderId'
+        example: 01a194b4-978e-7c3a-9f21-6d4b8e2a1c05
+    get:
+      tags: [orders]
+      operationId: getOrder
+      summary: 注文を確かめる
+      description: 注文 ID の注文の、状態・注文日時・注文明細・合計・消費税額・連絡先メールアドレスを返す。
+      responses:
+        '200':
+          description: 注文の表現。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              examples:
+                order:
+                  $ref: '#/components/examples/order'
+        '404':
+          description: その注文 ID の注文が無い。
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/OrderNotFoundProblem'
+              examples:
+                order-not-found:
+                  $ref: '#/components/examples/order-not-found'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  schemas:
+    OrderId:
+      type: string
+      description: サーバーが作る注文 ID。クライアントは中身を読まず、文字列のまま使う。
+    ProductId:
+      type: string
+      minLength: 1
+      description: 商品 ID。クライアントは中身を読まず、文字列のまま使う。
+    ContactEmail:
+      type: string
+      format: email
+      description: 連絡先メールアドレス。
+    Quantity:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 9007199254740991
+      description: 数量。
+    Amount:
+      type: integer
+      format: int64
+      minimum: 0
+      maximum: 9007199254740991
+      description: 消費税を含んだ円の整数。
+    PlaceOrderRequest:
+      type: object
+      description: 注文するのリクエスト。ここに無いキーがあれば、注文を受け付けない (`/problems/invalid-request`)。
+      additionalProperties: false
+      required: [contactEmail, lines]
+      properties:
+        contactEmail:
+          $ref: '#/components/schemas/ContactEmail'
+        lines:
+          type: array
+          description: 注文明細。同じ商品の注文明細は 1 つまでで、サーバーが確かめる。
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [productId, quantity]
+            properties:
+              productId:
+                $ref: '#/components/schemas/ProductId'
+              quantity:
+                $ref: '#/components/schemas/Quantity'
+    Order:
+      type: object
+      description: 注文の表現。後からキーを足すので、クライアントは知らないキーを無視する。
+      required: [orderId, status, placedAt, contactEmail, lines, total, taxAmount]
+      properties:
+        orderId:
+          $ref: '#/components/schemas/OrderId'
+        status:
+          type: string
+          description: 注文の状態の code。値は後から増えるので、クライアントは知らない値を受け取っても止まらないようにする。今の値は `PENDING` (受付) だけ。
+          examples: [PENDING]
+        placedAt:
+          type: string
+          format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
+          description: 注文日時。UTC で書き、末尾を `Z` にし、秒の小数を 3 桁にそろえる。
+        contactEmail:
+          $ref: '#/components/schemas/ContactEmail'
+        lines:
+          type: array
+          description: 注文明細。同じ商品の注文明細は 1 つまで。
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/OrderLine'
+        total:
+          $ref: '#/components/schemas/Amount'
+          description: 合計。注文明細ごとの単価と数量の積の和。
+        taxAmount:
+          $ref: '#/components/schemas/Amount'
+          description: 消費税額。合計に含まれる消費税の額。
+    OrderLine:
+      type: object
+      description: 注文明細の表現。
+      required: [productId, quantity, unitPrice, taxRate]
+      properties:
+        productId:
+          $ref: '#/components/schemas/ProductId'
+        quantity:
+          $ref: '#/components/schemas/Quantity'
+        unitPrice:
+          $ref: '#/components/schemas/Amount'
+          description: 単価。注文した時点の商品の価格を写した金額。
+        taxRate:
+          type: integer
+          format: int32
+          enum: [8, 10]
+          description: 税率 (百分率)。標準税率は 10、軽減税率は 8。
+    Problem:
+      type: object
+      description: 問題の詳細 (RFC 9457)。クライアントは、知らないメンバーを無視する。
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          description: 問題の型。自前の型は `/problems/` で始まる相対参照で、応答を返したオリジンで解決した URI が識別子になる。汎用の失敗は `about:blank`。
+        title:
+          type: string
+          description: 問題の型の題。
+        status:
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+          description: 応答のステータスコードと同じ値。
+        detail:
+          type: string
+          description: この発生の説明。クライアントは、読み取って処理を分けない。
+    InvalidRequestProblem:
+      description: 本文が JSON として読めないか、形や値が表現の決まりと、注文するの手順 2 の確かめに合わない。
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [errors]
+          properties:
+            type:
+              const: /problems/invalid-request
+            title:
+              const: Invalid request
+            status:
+              const: 400
+            errors:
+              type: array
+              description: 本文の誤りを 1 つずつ。見つけたものをすべて並べる。
+              minItems: 1
+              items:
+                type: object
+                required: [pointer, detail]
+                properties:
+                  pointer:
+                    type: string
+                    description: 誤りの位置。JSON Pointer (RFC 6901) で、先頭に `#` を付けない。本文が JSON として読めないときは、本文全体を指す空の文字列。
+                  detail:
+                    type: string
+                    description: 誤りの説明。
+    UnknownProductProblem:
+      description: 登録されていない商品がある。
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [productIds]
+          properties:
+            type:
+              const: /problems/unknown-product
+            title:
+              const: Unknown product
+            status:
+              const: 400
+            productIds:
+              type: array
+              description: 登録されていない商品の商品 ID。
+              minItems: 1
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/ProductId'
+    InsufficientInventoryProblem:
+      description: 在庫が数量より少ない商品がある。一部の商品だけが足りないときも、注文全体を受け付けない。
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [productIds]
+          properties:
+            type:
+              const: /problems/insufficient-inventory
+            title:
+              const: Insufficient inventory
+            status:
+              const: 400
+            productIds:
+              type: array
+              description: 在庫が足りない商品の商品 ID。在庫の数は返さない。
+              minItems: 1
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/ProductId'
+    PlaceOrderBadRequestProblem:
+      description: 注文するの 400 の本文。3 つの問題の型のどれか 1 つ。
+      oneOf:
+        - $ref: '#/components/schemas/InvalidRequestProblem'
+        - $ref: '#/components/schemas/UnknownProductProblem'
+        - $ref: '#/components/schemas/InsufficientInventoryProblem'
+    OrderNotFoundProblem:
+      description: その注文 ID の注文が無い。
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            type:
+              const: /problems/order-not-found
+            title:
+              const: Order not found
+            status:
+              const: 404
+    InternalErrorProblem:
+      description: サーバーの予期しない誤り。
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          required: [trackingId]
+          properties:
+            type:
+              const: /problems/internal-error
+            title:
+              const: Unexpected error
+            status:
+              const: 500
+            trackingId:
+              type: string
+              description: 追跡 ID。同じ値をサーバーのログにも残す。問い合わせのときに伝える。
+    NotAcceptableProblem:
+      description: '`Accept` が `application/json` を受け入れない。'
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            type:
+              const: about:blank
+            title:
+              const: Not Acceptable
+            status:
+              const: 406
+    UnsupportedMediaTypeProblem:
+      description: 本文のメディアタイプが `application/json` でない。
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            type:
+              const: about:blank
+            title:
+              const: Unsupported Media Type
+            status:
+              const: 415
+  responses:
+    NotAcceptable:
+      description: '`Accept` が `application/json` を受け入れない。'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/NotAcceptableProblem'
+          examples:
+            not-acceptable:
+              $ref: '#/components/examples/not-acceptable'
+    InternalError:
+      description: サーバーの予期しない誤り。本文の `trackingId` を問い合わせに使う。
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/InternalErrorProblem'
+          examples:
+            internal-error:
+              $ref: '#/components/examples/internal-error'
+  examples:
+    place-order-request:
+      summary: りんご 2 個と保存容器 1 個を注文する
+      value:
+        contactEmail: taro.test@example.com
+        lines:
+          - productId: 01a0f4c2-c400-7a11-8b52-3c9d0e1f2a34
+            quantity: 2
+          - productId: 01a0f4c2-c7e8-7b22-a963-4dae1f203b45
+            quantity: 1
+    order:
+      summary: 受け付けた注文
+      value:
+        orderId: 01a194b4-978e-7c3a-9f21-6d4b8e2a1c05
+        status: PENDING
+        placedAt: '2026-11-01T01:23:45.678Z'
+        contactEmail: taro.test@example.com
+        lines:
+          - productId: 01a0f4c2-c400-7a11-8b52-3c9d0e1f2a34
+            quantity: 2
+            unitPrice: 1080
+            taxRate: 8
+          - productId: 01a0f4c2-c7e8-7b22-a963-4dae1f203b45
+            quantity: 1
+            unitPrice: 1650
+            taxRate: 10
+        total: 3810
+        taxAmount: 310
+    invalid-request:
+      summary: 連絡先メールアドレスの形と、数量が誤っている
+      value:
+        type: /problems/invalid-request
+        title: Invalid request
+        status: 400
+        detail: The request body has 2 errors.
+        errors:
+          - pointer: /contactEmail
+            detail: Must be an email address.
+          - pointer: /lines/0/quantity
+            detail: Must be an integer of 1 or more.
+    unknown-product:
+      summary: 登録されていない商品がある
+      value:
+        type: /problems/unknown-product
+        title: Unknown product
+        status: 400
+        detail: 1 product in the order is not registered.
+        productIds:
+          - 01a0f4c2-d1a0-7c33-b874-5ebf20314c56
+    insufficient-inventory:
+      summary: 在庫が足りない商品がある
+      value:
+        type: /problems/insufficient-inventory
+        title: Insufficient inventory
+        status: 400
+        detail: 1 product in the order does not have enough inventory.
+        productIds:
+          - 01a0f4c2-c7e8-7b22-a963-4dae1f203b45
+    order-not-found:
+      summary: 注文が無い
+      value:
+        type: /problems/order-not-found
+        title: Order not found
+        status: 404
+    internal-error:
+      summary: サーバーの予期しない誤り
+      value:
+        type: /problems/internal-error
+        title: Unexpected error
+        status: 500
+        detail: Include the trackingId when you contact us.
+        trackingId: 4f3a9c2e-7b1d-4e8a-9c05-2d6b8f1e3a70
+    not-acceptable:
+      summary: 'Accept が application/json を受け入れない'
+      value:
+        type: about:blank
+        title: Not Acceptable
+        status: 406
+    unsupported-media-type:
+      summary: 本文が application/json でない
+      value:
+        type: about:blank
+        title: Unsupported Media Type
+        status: 415
