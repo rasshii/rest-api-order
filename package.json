@@ -11,10 +11,14 @@
   "scripts": {
     "typecheck": "tsc",
     "test": "vitest run",
-    "verify": "npm run typecheck && npm run test"
+    "verify": "npm run typecheck && npm run test",
+    "docs:swagger": "node tools/swagger-ui/server.ts"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "swagger-ui-dist": "5.34.1",
     "typescript": "6.0.3",
     "vitest": "5.0.5",
     "yaml": "2.9.1"
