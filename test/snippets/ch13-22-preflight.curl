@@ -1,0 +1,4 @@
+curl -s -i -X OPTIONS http://127.0.0.1:3904/orders \
+  -H 'Origin: http://localhost:3903' \
+  -H 'Access-Control-Request-Method: POST' \
+  -H 'Access-Control-Request-Headers: content-type'

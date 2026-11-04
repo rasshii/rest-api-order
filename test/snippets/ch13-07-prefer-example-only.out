@@ -1,0 +1,1 @@
+{"type":"https://stoplight.io/prism/errors#NOT_FOUND","title":"The server cannot find the requested content","status":404,"detail":"Response for contentType: application/json and exampleKey: insufficient-inventory does not exist."}

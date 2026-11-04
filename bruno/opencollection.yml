@@ -1,0 +1,17 @@
+opencollection: 1.0.0
+
+info:
+  name: 注文 API
+
+docs:
+  content: |
+    docs/requirements/stories.md の受け入れ条件のうち、モックで確かめられるものを、1 つずつリクエストにしたもの。
+    モックで確かめられない受け入れ条件と、その理由は docs/getting-started.md の表にある。
+  type: text/markdown
+
+# どのリクエストにも、仕様 (info.description) が勧める Accept を付ける。
+# 誤りの応答は問題の詳細 (application/problem+json) で返るので、クライアントとしてそれを受け入れると書いておく。
+request:
+  headers:
+    - name: Accept
+      value: application/json, application/problem+json

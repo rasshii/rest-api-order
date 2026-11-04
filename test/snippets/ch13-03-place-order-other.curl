@@ -1,0 +1,3 @@
+curl -s http://127.0.0.1:3904/orders \
+  -H 'Content-Type: application/json' \
+  -d '{"contactEmail": "hanako.test@example.com", "lines": [{"productId": "01a0f4c2-c7e8-7b22-a963-4dae1f203b45", "quantity": 3}]}'

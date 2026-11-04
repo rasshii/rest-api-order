@@ -1,0 +1,88 @@
+# 値を作るサーバーの応答をスキーマで確かめる処理 (test/support/response-schema.ts) の自己テストに使う、試しの仕様。
+# 応答を返すのは test/fixtures/schema/server.ts。harness.test.ts が、どの組み合わせで通り、どれで落ちるかを確かめる。
+openapi: 3.1.2
+info:
+  title: 照合の自己テストの仕様
+  version: 0.0.0
+paths:
+  /items/{itemId}:
+    get:
+      operationId: getItem
+      responses:
+        '200':
+          description: 項目。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+            text/plain: {}
+            text/csv:
+              schema: {}
+        '404':
+          $ref: '#/components/responses/NotFound'
+  # 静的なパスは、同じ形の変数のパス (上の /items/{itemId}) より先に当てる。本文のスキーマは Item と違う。
+  /items/special:
+    get:
+      operationId: getSpecialItem
+      responses:
+        '200':
+          description: 特別な項目。
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - special
+                properties:
+                  special:
+                    const: true
+  # 範囲のキー (4XX) は、その範囲のステータスコードに当てる。
+  /ranges/{rangeId}:
+    get:
+      operationId: getRange
+      responses:
+        '4XX':
+          description: 範囲の誤り。
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: integer
+                    minimum: 400
+                    maximum: 499
+  # default は探さない。仕様に無いステータスコードの応答を、default で通さないため。
+  /defaults/{defaultId}:
+    get:
+      operationId: getDefault
+      responses:
+        default:
+          description: どのステータスコードでも。
+          content:
+            application/json:
+              schema:
+                type: object
+components:
+  schemas:
+    Item:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+  responses:
+    NotFound:
+      description: 項目が無い。
+      content:
+        application/problem+json:
+          schema:
+            type: object
+            required:
+              - status
+            properties:
+              status:
+                const: 404

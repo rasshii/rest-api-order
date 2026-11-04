@@ -1,0 +1,4 @@
+curl -s http://127.0.0.1:3904/orders \
+  -H 'Content-Type: application/json' \
+  -H 'Prefer: example=insufficient-inventory' \
+  -d '{"contactEmail": "taro.test@example.com", "lines": [{"productId": "01a0f4c2-c7e8-7b22-a963-4dae1f203b45", "quantity": 4}]}'

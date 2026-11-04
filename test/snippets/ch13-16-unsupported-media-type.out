@@ -1,0 +1,14 @@
+HTTP/1.1 415 Unsupported Media Type
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+sl-violations: [{"location":["request"],"severity":"Error","code":415,"message":"Supported content types: application/json"}]
+Accept: application/json
+Content-type: application/problem+json
+Content-Length: 68
+Date: Sat, 31 Oct 2026 09:00:00 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"type":"about:blank","title":"Unsupported Media Type","status":415}

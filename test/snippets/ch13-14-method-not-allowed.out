@@ -1,0 +1,12 @@
+HTTP/1.1 405 Method Not Allowed
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+content-type: application/problem+json
+Content-Length: 260
+Date: Sat, 31 Oct 2026 09:00:00 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"type":"https://stoplight.io/prism/errors#NO_METHOD_MATCHED_ERROR","title":"Route resolved, but no method matched","status":405,"detail":"The route /orders/01a194b4-978e-7c3a-9f21-6d4b8e2a1c05 has been matched, but it does not have \"delete\" method defined"}

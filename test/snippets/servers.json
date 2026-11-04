@@ -2,7 +2,16 @@
   "servers": {
     "ch02-echo-server": { "port": 3901, "ready": { "http": "/" } },
     "ch03-product-server": { "port": 3902, "ready": { "http": "/products" } },
-    "ch11-swagger-ui": { "port": 3903, "ready": { "http": "/" } }
+    "ch11-swagger-ui": { "port": 3903, "ready": { "http": "/" } },
+    "ch13-mock": { "port": 3904, "ready": { "http": "/orders/01a194b4-978e-7c3a-9f21-6d4b8e2a1c05" } },
+    "ch13-mock-dynamic": {
+      "port": 3905,
+      "ready": { "http": "/orders/01a194b4-978e-7c3a-9f21-6d4b8e2a1c05" },
+      "spec": "openapi/openapi.yaml"
+    }
   },
-  "commands": {}
+  "commands": {
+    "ch13-20-bruno-mock": ["ch13-mock"],
+    "ch13-21-bruno-dynamic": ["ch13-mock-dynamic"]
+  }
 }

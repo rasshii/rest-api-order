@@ -3,7 +3,7 @@
  * 本文を受け取る途中で切れたリクエストの後も止まらずに応答すること (読者が curl を途中で止めても、同じサーバーで
  * 記事の次の例を続けられるようにするため) と、商品のサーバーが受け付けるリクエストの形。
  */
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { connect } from 'node:net';
 import type { Socket } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -137,11 +137,10 @@ describe('Swagger UI の配信のサーバー', () => {
   }, 60_000);
 
   it('配る仕様のファイルが無いと 500 を返し、止まらない', async () => {
-    // リポジトリのファイルを動かさないよう、サーバーのファイルだけを一時のディレクトリに写し、仕様のファイルを置かずに起動する。
+    // リポジトリのファイルを動かさないよう、サーバーのディレクトリだけを一時のディレクトリに写し、仕様のファイルを置かずに起動する。
     const dir = mkdtempSync(join(tmpdir(), 'swagger-ui-'));
     try {
-      mkdirSync(join(dir, 'tools/swagger-ui'), { recursive: true });
-      copyFileSync(join(root, 'tools/swagger-ui/server.ts'), join(dir, 'tools/swagger-ui/server.ts'));
+      cpSync(join(root, 'tools/swagger-ui'), join(dir, 'tools/swagger-ui'), { recursive: true });
       copyFileSync(join(root, 'package.json'), join(dir, 'package.json'));
       symlinkSync(join(root, 'node_modules'), join(dir, 'node_modules'));
       await withServer(

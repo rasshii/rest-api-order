@@ -1,0 +1,55 @@
+
+> rest-api-order@0.0.0 bruno:mock
+> cd bruno && bru run --env mock
+
+place-order/accepted (201 Created) - 3 ms
+Assertions
+   ✓ res.status: eq 201
+   ✓ res.headers.location: eq /orders/{{orderId}}
+   ✓ res.body.status: eq PENDING
+   ✓ res.body.lines: length 2
+   ✓ res.body.lines[0].unitPrice: eq 1080
+   ✓ res.body.lines[1].unitPrice: eq 1650
+   ✓ res.body.total: eq 3810
+   ✓ res.body.taxAmount: eq 310
+place-order/quantity-zero (400 Bad Request) - 3 ms
+Assertions
+   ✓ res.status: eq 400
+   ✓ res.body.type: eq /problems/invalid-request
+place-order/no-lines (400 Bad Request) - 3 ms
+Assertions
+   ✓ res.status: eq 400
+   ✓ res.body.type: eq /problems/invalid-request
+place-order/no-contact-email (400 Bad Request) - 3 ms
+Assertions
+   ✓ res.status: eq 400
+   ✓ res.body.type: eq /problems/invalid-request
+place-order/invalid-contact-email (400 Bad Request) - 3 ms
+Assertions
+   ✓ res.status: eq 400
+   ✓ res.body.type: eq /problems/invalid-request
+get-order/accepted-order (200 OK) - 3 ms
+Assertions
+   ✓ res.status: eq 200
+   ✓ res.body.orderId: eq {{orderId}}
+   ✓ res.body.status: eq PENDING
+   ✓ res.body.placedAt: matches ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$
+   ✓ res.body.lines: length 2
+   ✓ res.body.total: eq 3810
+   ✓ res.body.taxAmount: eq 310
+   ✓ res.body.contactEmail: eq taro.test@example.com
+
+📊 Execution Summary
+┌───────────────┬──────────────┐
+│ Metric        │    Result    │
+├───────────────┼──────────────┤
+│ Status        │    ✓ PASS    │
+├───────────────┼──────────────┤
+│ Requests      │ 6 (6 Passed) │
+├───────────────┼──────────────┤
+│ Tests         │     0/0      │
+├───────────────┼──────────────┤
+│ Assertions    │    24/24     │
+├───────────────┼──────────────┤
+│ Duration (ms) │      80      │
+└───────────────┴──────────────┘

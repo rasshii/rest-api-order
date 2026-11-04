@@ -1,0 +1,49 @@
+info:
+  name: 在庫のある商品を注文すると、注文が受け付けられる
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/orders"
+  body:
+    type: json
+    data: |-
+      {
+        "contactEmail": "taro.test@example.com",
+        "lines": [
+          { "productId": "01a0f4c2-c400-7a11-8b52-3c9d0e1f2a34", "quantity": 2 },
+          { "productId": "01a0f4c2-c7e8-7b22-a963-4dae1f203b45", "quantity": 1 }
+        ]
+      }
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        bru.setVar("orderId", res.body.orderId);
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "201"
+    - expression: res.headers.location
+      operator: eq
+      value: /orders/{{orderId}}
+    - expression: res.body.status
+      operator: eq
+      value: PENDING
+    - expression: res.body.lines
+      operator: length
+      value: "2"
+    - expression: res.body.lines[0].unitPrice
+      operator: eq
+      value: "1080"
+    - expression: res.body.lines[1].unitPrice
+      operator: eq
+      value: "1650"
+    - expression: res.body.total
+      operator: eq
+      value: "3810"
+    - expression: res.body.taxAmount
+      operator: eq
+      value: "310"

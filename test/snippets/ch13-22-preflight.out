@@ -1,0 +1,12 @@
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: http://localhost:3903
+Access-Control-Allow-Headers: content-type
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+Access-Control-Allow-Methods: POST
+Vary: origin
+Content-Length: 0
+Date: Sat, 31 Oct 2026 09:00:00 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+

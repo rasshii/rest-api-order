@@ -1,0 +1,13 @@
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+sl-violations: [{"location":["request","body"],"severity":"Error","code":"required","message":"Request body must have required property 'contactEmail'"}]
+Content-type: application/problem+json
+Content-Length: 269
+Date: Sat, 31 Oct 2026 09:00:00 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"type":"/problems/invalid-request","title":"Invalid request","status":400,"detail":"The request body has 2 errors.","errors":[{"pointer":"/contactEmail","detail":"Must be an email address."},{"pointer":"/lines/0/quantity","detail":"Must be an integer of 1 or more."}]}

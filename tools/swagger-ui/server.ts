@@ -1,7 +1,8 @@
 /*
  * 注文 API の仕様を、ブラウザの Swagger UI で読むための配信のサーバー。
  * 画面のファイルは npm の swagger-ui-dist のものを配り、読む仕様を決める初期化の script だけをここで作る。
- * 配る仕様は、npm run bundle が openapi/ から束ねた dist/openapi.yaml (モックと build-docs も同じファイルを読む)。
+ * 配る仕様は、npm run bundle が openapi/ から束ねた dist/openapi.yaml (モックと build-docs も同じファイルを読む) の
+ * servers の先頭にモックを足したもの (spec-for-browser.ts)。
  * リクエストのたびに読み直すので、仕様を直したら npm run bundle を回してからブラウザで読み込み直せば反映される。
  */
 import { readFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ import type { ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { specForBrowser } from './spec-for-browser.ts';
 
 const port = 3903;
 const spec = fileURLToPath(new URL('../../dist/openapi.yaml', import.meta.url));
@@ -33,13 +35,12 @@ const assets: Record<string, string> = {
 
 /**
  * swagger-ui-dist の swagger-initializer.js の代わりに配る、初期化の script。
- * 読む仕様をこのサーバーの /openapi.yaml にする。リクエストを送る先がまだ無いので、Try it out は出さない。
+ * 読む仕様をこのサーバーの /openapi.yaml にする。Try it out は、既定のまま全メソッドで出す。
  */
 const initializer = `window.onload = () => {
   window.ui = SwaggerUIBundle({
     url: '/openapi.yaml',
     dom_id: '#swagger-ui',
-    supportedSubmitMethods: [],
   });
 };
 `;
@@ -50,18 +51,16 @@ function send(res: ServerResponse, status: number, contentType: string, body: st
 }
 
 /**
- * ファイルを読んで返す。読めなければ 500 と理由を返し、ファイルが無いとき (ENOENT) は missing の文も添える。
- * 配る仕様は、束ねる前や dist/ を消した後には無い。readFileSync の例外を捕まえないと、この関数の外で処理されないまま、
- * サーバーのプロセスが止まる。先に existsSync で有無を見ても、見た後に消えたときと、ENOENT 以外の誤りでは止まる。
+ * ファイルを読んで返す。読めなければ 500 と理由を返す。
+ * readFileSync の例外を捕まえないと、この関数の外で処理されないまま、サーバーのプロセスが止まる。
  */
-function sendFile(res: ServerResponse, file: string, contentType: string, missing = ''): void {
+function sendFile(res: ServerResponse, file: string, contentType: string): void {
   let body: Buffer;
   try {
     body = readFileSync(file);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code ?? String(error);
-    const hint = code === 'ENOENT' && missing !== '' ? `。${missing}` : '';
-    send(res, 500, 'text/plain; charset=utf-8', `配るファイルを読めません (${code})${hint}\n`);
+    send(res, 500, 'text/plain; charset=utf-8', `配るファイルを読めません (${code})\n`);
     return;
   }
   send(res, 200, contentType, body);
@@ -85,7 +84,20 @@ createServer((req, res) => {
     res.end();
     return;
   }
-  if (path === '/openapi.yaml') return sendFile(res, spec, 'application/yaml', 'dist/openapi.yaml を npm run bundle で作ってください');
+  if (path === '/openapi.yaml') {
+    let body: string;
+    try {
+      body = specForBrowser(readFileSync(spec, 'utf8'));
+    } catch (error) {
+      /*
+       * 束ねる前や dist/ を消した後 (ENOENT) と、束ね直している途中の書きかけのファイル (YAML として読めない) で投げる。
+       * 先に existsSync で有無を見ても、見た後に消えたときと ENOENT 以外の誤りでは投げるので、ここで捕まえて 500 にする。
+       */
+      const reason = (error as NodeJS.ErrnoException).code ?? (error as Error).message;
+      return send(res, 500, 'text/plain; charset=utf-8', `dist/openapi.yaml を読めません (${reason})。npm run bundle で作り直してください\n`);
+    }
+    return send(res, 200, 'application/yaml', body);
+  }
   if (path === '/swagger-initializer.js') return send(res, 200, 'text/javascript; charset=utf-8', initializer);
   const name = path === '/' ? '/index.html' : path;
   const contentType = assets[name];
