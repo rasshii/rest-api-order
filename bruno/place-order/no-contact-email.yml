@@ -1,0 +1,25 @@
+info:
+  name: 連絡先メールアドレスが無いと、注文は受け付けられない
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: "{{baseUrl}}/orders"
+  body:
+    type: json
+    data: |-
+      {
+        "lines": [
+          { "productId": "01a0f4c2-c400-7a11-8b52-3c9d0e1f2a34", "quantity": 1 }
+        ]
+      }
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "400"
+    - expression: res.body.type
+      operator: eq
+      value: /problems/invalid-request

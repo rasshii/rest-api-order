@@ -1,7 +1,8 @@
 /*
  * 注文 API の仕様を、ブラウザの Swagger UI で読むための配信のサーバー。
  * 画面のファイルは npm の swagger-ui-dist のものを配り、読む仕様を決める初期化の script だけをここで作る。
- * 配る仕様は、npm run bundle が openapi/ から束ねた dist/openapi.yaml (モックと build-docs も同じファイルを読む)。
+ * 配る仕様は、npm run bundle が openapi/ から束ねた dist/openapi.yaml (モックと build-docs も同じファイルを読む) の
+ * servers の先頭にモックを足したもの (spec-for-browser.ts)。
  * リクエストのたびに読み直すので、仕様を直したら npm run bundle を回してからブラウザで読み込み直せば反映される。
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ import type { ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { specForBrowser } from './spec-for-browser.ts';
 
 const port = 3903;
 const spec = fileURLToPath(new URL('../../dist/openapi.yaml', import.meta.url));
@@ -33,13 +35,12 @@ const assets: Record<string, string> = {
 
 /*
  * swagger-ui-dist の swagger-initializer.js の代わりに配る、初期化の script。
- * 読む仕様をこのサーバーの /openapi.yaml にする。リクエストを送る先がまだ無いので、Try it out は出さない。
+ * 読む仕様をこのサーバーの /openapi.yaml にする。Try it out は、既定のまま全メソッドで出す。
  */
 const initializer = `window.onload = () => {
   window.ui = SwaggerUIBundle({
     url: '/openapi.yaml',
     dom_id: '#swagger-ui',
-    supportedSubmitMethods: [],
   });
 };
 `;
@@ -65,7 +66,14 @@ createServer((req, res) => {
   if (path === '/openapi.yaml') {
     // 束ねる前や dist/ を消した後に readFileSync が投げると、サーバーのプロセスが止まるので、先に有無を見る。
     if (!existsSync(spec)) return send(res, 500, 'text/plain; charset=utf-8', 'dist/openapi.yaml がありません。npm run bundle で作ってください\n');
-    return send(res, 200, 'application/yaml', readFileSync(spec));
+    // 束ね直している途中の書きかけのファイルは、YAML として読めないことがある。ここで投げてもプロセスが止まるので、500 にする。
+    let body: string;
+    try {
+      body = specForBrowser(readFileSync(spec, 'utf8'));
+    } catch (error) {
+      return send(res, 500, 'text/plain; charset=utf-8', `dist/openapi.yaml を読めません (${(error as Error).message})。npm run bundle で作り直してください\n`);
+    }
+    return send(res, 200, 'application/yaml', body);
   }
   if (path === '/swagger-initializer.js') return send(res, 200, 'text/javascript; charset=utf-8', initializer);
   const name = path === '/' ? '/index.html' : path;

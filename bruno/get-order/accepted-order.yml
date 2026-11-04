@@ -1,0 +1,35 @@
+info:
+  name: 受け付けた注文を、注文 ID で確かめられる
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/orders/{{orderId}}"
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.orderId
+      operator: eq
+      value: "{{orderId}}"
+    - expression: res.body.status
+      operator: eq
+      value: PENDING
+    - expression: res.body.placedAt
+      operator: matches
+      value: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$
+    - expression: res.body.lines
+      operator: length
+      value: "2"
+    - expression: res.body.total
+      operator: eq
+      value: "3810"
+    - expression: res.body.taxAmount
+      operator: eq
+      value: "310"
+    - expression: res.body.contactEmail
+      operator: eq
+      value: taro.test@example.com

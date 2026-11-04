@@ -1,0 +1,5 @@
+curl -s -i http://127.0.0.1:3904/orders \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, application/problem+json' \
+  -H 'Prefer: code=400, example=insufficient-inventory' \
+  -d '{"lines": [{"productId": "01a0f4c2-c7e8-7b22-a963-4dae1f203b45", "quantity": 4}]}'

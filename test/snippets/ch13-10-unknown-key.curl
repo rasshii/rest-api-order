@@ -1,0 +1,3 @@
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3904/orders \
+  -H 'Content-Type: application/json' \
+  -d '{"contactEmail": "taro.test@example.com", "coupon": "WINTER", "lines": [{"productId": "01a0f4c2-c400-7a11-8b52-3c9d0e1f2a34", "quantity": 1}]}'

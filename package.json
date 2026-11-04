@@ -15,11 +15,16 @@
     "verify": "npm run typecheck && npm run test && npm run lint",
     "bundle": "redocly bundle openapi/openapi.yaml --output dist/openapi.yaml",
     "docs:build": "npm run bundle && redocly build-docs dist/openapi.yaml --output dist/docs/index.html",
-    "docs:swagger": "npm run bundle && node tools/swagger-ui/server.ts"
+    "docs:swagger": "npm run bundle && node tools/swagger-ui/server.ts",
+    "mock": "npm run bundle && prism mock dist/openapi.yaml --port 3904",
+    "mock:dynamic": "npm run bundle && prism mock dist/openapi.yaml --port 3905 --dynamic",
+    "bruno:mock": "cd bruno && bru run --env mock"
   },
   "devDependencies": {
     "@redocly/cli": "2.72.1",
+    "@stoplight/prism-cli": "5.16.0",
     "@types/node": "26.6.6",
+    "@usebruno/cli": "4.3.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "swagger-ui-dist": "5.34.1",

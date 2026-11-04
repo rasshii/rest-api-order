@@ -1,0 +1,13 @@
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+sl-violations: [{"location":["request","body"],"severity":"Error","code":"required","message":"Request body must have required property 'contactEmail'"}]
+Content-type: application/problem+json
+Content-Length: 209
+Date: Sat, 31 Oct 2026 09:00:00 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"type":"/problems/insufficient-inventory","title":"Insufficient inventory","status":400,"detail":"1 product in the order does not have enough inventory.","productIds":["01a0f4c2-c7e8-7b22-a963-4dae1f203b45"]}

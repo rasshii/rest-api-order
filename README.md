@@ -19,7 +19,9 @@
 | `examples/problems/` | 誤りの応答の本文の例 (問題の型の表の行ごとに 1 つ) |
 | `tools/echo-server/` | 受け取ったリクエストを、そのまま JSON で返すサーバー (第 2 章) |
 | `tools/product-server/` | 商品を ID と名前だけで持つ、手書きのサーバー。リソースの URL と RPC 風の口 (`/rpc`) を持つ (第 3 章・第 7 章) |
-| `tools/swagger-ui/` | 注文 API の仕様を Swagger UI で読むための配信のサーバー (第 11 章) |
+| `tools/swagger-ui/` | 注文 API の仕様を Swagger UI で読むための配信のサーバー (第 11 章)。配る仕様の servers にモックを足し (`spec-for-browser.ts`)、Try it out からモックへ送れるようにする (第 13 章) |
+| `bruno/` | 受け入れ条件のうち、モックで確かめられるものを 1 つずつリクエストにした Bruno のコレクション (OpenCollection YAML、第 13 章) |
+| `docs/getting-started.md` | 注文 API を使ってアプリを作る人が、モックを起動して呼ぶまでの手順と、受け入れ条件をモックで確かめられるかの表 |
 | `test/acceptance.test.ts` | 受け入れ条件のテスト。中身は、注文の API を実装するときに書く |
 | `test/requirements.test.ts` | 受け入れ条件の文書と、受け入れ条件のテストの名前がそろっていることを確かめるテスト |
 | `test/glossary.test.ts` | `docs/` の文書と仕様に、用語集の使わない語が無く、lint の規則が用語集の使わない語をどれも探すことを確かめるテスト |
@@ -30,6 +32,8 @@
 | `test/openapi.test.ts` | 仕様の操作・キー・名前付きの例が、対応表・表現の決まり・例のファイルと食い違わず、名前付きの例が仕様のスキーマに合うことを確かめるテスト |
 | `test/lint.test.ts` | lint の規則が、規則の名前のディレクトリに置いた落ちる例 (`test/fixtures/lint/`) でその規則だけを報告し、土台の仕様には何も報告しないことを確かめるテスト |
 | `test/guidelines.test.ts` | ガイドラインの守り方の列が、lint の落ちる例と、実在するテストを指すことを確かめるテスト |
+| `test/bruno.test.ts` | Bruno のコレクションが、受け入れ条件の文書と、始めるための手順の受け入れ条件の表にそろっていて、例の商品 ID の表の商品 ID が例にあることを確かめるテスト |
+| `test/swagger-ui.test.ts` | Swagger UI の配信のサーバーが配る仕様の servers の先頭が、記事の例のモックを指すことを確かめるテスト |
 | `test/snippets/` | 記事に載せた curl とコマンドと、その結果の期待値 |
 | `test/snippets.test.ts` | `test/snippets/` の curl とコマンドを実行し、出力を期待値と比べるテスト |
 | `test/support/` | 上のテストが使う処理 (記事の例の実行と比較、仕様の読み込みとスキーマでの検証) |
@@ -57,6 +61,15 @@ npm run bundle
 
 # 仕様を Swagger UI で読む (http://localhost:3903)。起動の前に束ねる
 npm run docs:swagger
+
+# 仕様の例を返すモックを http://127.0.0.1:3904 で起動する。起動の前に束ねる
+npm run mock
+
+# 応答の値を仕様のスキーマから毎回作るモックを http://127.0.0.1:3905 で起動する
+npm run mock:dynamic
+
+# Bruno のコレクション (bruno/) を、起動したモックへ送って確かめる
+npm run bruno:mock
 
 # 仕様の文書 (Redoc) を dist/docs/index.html に作る
 npm run docs:build

@@ -6,7 +6,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, expect, it } from 'vitest';
+import { loadSpec } from './support/openapi.ts';
 import { normalizeOutput } from './support/replacements.ts';
+import { responseChecker } from './support/response-schema.ts';
 import {
   assertAlive,
   countWithFind,
@@ -19,6 +21,7 @@ import {
   runCurl,
   startServer,
   stopServer,
+  valueServerProblems,
 } from './support/snippets.ts';
 import type { RunningServer } from './support/snippets.ts';
 
@@ -28,6 +31,8 @@ const servers = readServersFile(dir);
 const snippets = listSnippets(dir);
 const ran = new Set<string>();
 const started = new Set<string>();
+/** 例の応答を仕様のスキーマで確かめた、値を作るサーバーの名前。 */
+const schemaChecked = new Set<string>();
 
 /** 例が使うサーバーの名前。curl は URL のポートで、command は servers.json の commands で決める。 */
 function serversFor(name: string, kind: 'request' | 'command', content: string): string[] {
@@ -47,6 +52,17 @@ function serversFor(name: string, kind: 'request' | 'command', content: string):
  */
 const running = new Map<string, Promise<RunningServer>>();
 let runningChapter = '';
+
+/** 値を作るサーバーの応答を確かめる関数を、仕様の入口ごとに 1 度だけ作る。仕様はテストの中で束ねて読む (dist/ は読まない)。 */
+const checkers = new Map<string, ReturnType<typeof responseChecker>>();
+function checkerFor(entry: string): ReturnType<typeof responseChecker> {
+  let checker = checkers.get(entry);
+  if (checker === undefined) {
+    checker = responseChecker(loadSpec(entry));
+    checkers.set(entry, checker);
+  }
+  return checker;
+}
 
 /*
  * 起動したサーバーを、すべて同時に止めにかかる。1 つを止めるのに失敗しても、残りは止めてから失敗にする。
@@ -107,6 +123,10 @@ for (const snippet of snippets) {
       if (hasOut === hasStatus) {
         throw new Error(`${snippet.name} は .out と .status のどちらか 1 つを置く (今は ${hasOut ? '両方ある' : 'どちらも無い'})`);
       }
+      const specs = used.flatMap((server) => (server.spec.spec === undefined ? [] : [server.spec.spec]));
+      if (specs.length > 0 && hasOut) {
+        throw new Error(`${snippet.name} は値を作るサーバーへの例なので、.out でなく .status を置く`);
+      }
       const result = runCurl(content, root);
       expect(result.status, 'curl の終了コード').toBe(0);
       const stdout = normalizeOutput(result.stdout);
@@ -114,6 +134,11 @@ for (const snippet of snippets) {
         expect(lastLine(stdout)).toBe(readFileSync(statusPath, 'utf8').trim());
       } else {
         await expect(stdout).toMatchFileSnapshot(outPath);
+      }
+      for (const server of used) {
+        if (server.spec.spec === undefined) continue;
+        expect(checkerFor(server.spec.spec)(content, result.stdout), `${snippet.name} の応答を ${server.spec.spec} のスキーマで確かめた食い違い`).toEqual([]);
+        schemaChecked.add(server.name);
       }
     } else {
       const exitPath = join(dir, `${snippet.name}.exit`);
@@ -129,9 +154,18 @@ for (const snippet of snippets) {
   }, exampleTimeoutMs);
 }
 
+it('servers.json の spec は、値を作るモック (prism mock --dynamic) にだけ書いてある', () => {
+  const scripts = (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts;
+  const commandOf = (name: string) => readFileSync(join(dir, `${name}.server`), 'utf8');
+  expect(valueServerProblems(servers, commandOf, scripts)).toEqual([]);
+});
+
 it('snippets のファイルをすべて走らせ、すべてのサーバーを起動した', () => {
   expect(existsSync(join(dir, 'servers.json')), 'test/snippets/servers.json が無い').toBe(true);
   expect(findServersFileProblems(dir, servers)).toEqual([]);
   expect(ran.size).toBe(countWithFind(dir));
   expect([...started].sort()).toEqual(Object.keys(servers.servers).sort());
+  // 値を作るサーバーには、そこへ送って本文をスキーマで確かめた例が 1 つ以上ある (例の送り先を例を返すサーバーに取り違えると落ちる)。
+  const valueServers = Object.entries(servers.servers).flatMap(([name, spec]) => (spec.spec === undefined ? [] : [name]));
+  expect([...schemaChecked].sort()).toEqual(valueServers.sort());
 });

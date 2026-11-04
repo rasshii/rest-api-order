@@ -1,0 +1,13 @@
+HTTP/1.1 201 Created
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: *
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: *
+Location: /orders/01a194b4-978e-7c3a-9f21-6d4b8e2a1c05
+Content-type: application/json
+Content-Length: 376
+Date: Sat, 31 Oct 2026 09:00:00 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"orderId":"01a194b4-978e-7c3a-9f21-6d4b8e2a1c05","status":"PENDING","placedAt":"2026-11-01T01:23:45.678Z","contactEmail":"taro.test@example.com","lines":[{"productId":"01a0f4c2-c400-7a11-8b52-3c9d0e1f2a34","quantity":2,"unitPrice":1080,"taxRate":8},{"productId":"01a0f4c2-c7e8-7b22-a963-4dae1f203b45","quantity":1,"unitPrice":1650,"taxRate":10}],"total":3810,"taxAmount":310}

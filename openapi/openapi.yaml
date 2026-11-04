@@ -20,7 +20,7 @@ info:
     identifier: MIT
 servers:
   - url: /
-    description: API を置く場所はまだ決めていない。servers を省いたときの既定と同じ。
+    description: 仕様を配っているサーバーと同じオリジン
 tags:
   - name: orders
     description: 注文
