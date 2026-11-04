@@ -1,0 +1,95 @@
+# 注文 API の仕様の lint の設定。どの規則が docs/api-design/guidelines.md のどの規約を守るかは、guidelines.md の表に書く。
+# recommended の warning は終了コード 0 で CI を止めないので、warning もすべて error にした recommended-strict を土台にする。
+# test/lint.test.ts が、自前の規則ごとに test/fixtures/lint/ の落ちる例がその規則だけで落ちることを確かめる。
+extends:
+  - recommended-strict
+
+rules:
+  rule/property-names-camel-case:
+    subject:
+      type: SchemaProperties
+    assertions:
+      casing: camelCase
+    message: スキーマのキーは camelCase で書く ({{problems}})
+
+  rule/operation-id-camel-case:
+    subject:
+      type: Operation
+      property: operationId
+    assertions:
+      casing: camelCase
+    message: operationId は camelCase で書く ({{problems}})
+
+  # 誤りの応答の 2 つの規則は、範囲のキー (4XX・5XX) にも当てる。default は成功の応答も兼ねうるので当てない。
+  rule/error-responses-have-content:
+    subject:
+      type: Response
+      property: content
+      matchParentKeys: /^[45](\d\d|XX)$/
+    assertions:
+      defined: true
+    message: 誤りの応答 ({{key}}) は、本文に問題の詳細を返す
+
+  # enum はキーが 0 個の content: {} を通すので、required で application/problem+json があることも求める。
+  rule/error-responses-problem-json:
+    subject:
+      type: MediaTypesMap
+    where:
+      - subject:
+          type: Response
+          matchParentKeys: /^[45](\d\d|XX)$/
+        assertions:
+          defined: true
+    assertions:
+      enum:
+        - application/problem+json
+      required:
+        - application/problem+json
+    message: 誤りの応答の本文は application/problem+json の問題の詳細にする ({{problems}})
+
+  # headers の値を schema で確かめる。HeadersMap を subject にすると、headers の無い応答を訪ねず落とせない。
+  rule/created-has-location:
+    subject:
+      type: Response
+      property: headers
+      filterInParentKeys:
+        - '201'
+    assertions:
+      defined: true
+      schema:
+        type: object
+        required:
+          - Location
+    message: 201 の応答は Location ヘッダで作ったリソースの URL を返す
+
+  # 最上位に security があると、組み込みの security-defined は操作ごとに確かめなくなる。
+  rule/root-no-security:
+    subject:
+      type: Root
+      property: security
+    assertions:
+      defined: false
+    message: 認証の要らない操作の security は、最上位でなく操作ごとに書く
+
+  rule/schema-no-example:
+    subject:
+      type: Schema
+      property: example
+    assertions:
+      defined: false
+    message: スキーマの例は、非推奨の example でなく examples に書く
+
+  # 用語集 (docs/glossary.yaml) の avoid の語。その語を含む用語集の語と allowed の語 (消費税額・ユーザーストーリー・ユーザーエージェント) は、後読みと先読みで外す。
+  # test/glossary.test.ts が、avoid の語がどれもこの正規表現に当たり、外す語が当たらないことを確かめる。
+  rule/glossary-avoid:
+    subject:
+      type: any
+      property:
+        - title
+        - summary
+        - description
+    assertions:
+      notPattern: /OrderItem|Stock|税込価格|売価|(?<!消費)税額|外税|キャンセル|補充|restock|顧客|購入した人|ユーザー(?!ストーリー|エージェント)|エラー ID/
+    message: 用語集の使わない語がある ({{problems}})。docs/glossary.yaml の avoid を見る
+
+telemetry: off

@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { loadSpec, refName } from './support/openapi.ts';
 
 interface KeyRow {
   key: string;
@@ -73,6 +74,27 @@ const codeByName = new Map(terms.map((term) => [term.name, term.code]));
 const codes = terms.flatMap((term) => (typeof term.code === 'string' ? [term.code] : []));
 
 /*
+ * 型と範囲の正本は仕様のスキーマ (docs/api-design/guidelines.md)。値の範囲 (税率の候補・注文明細の上限) は、
+ * キーの表の型の列 (読む人のための要約) やこのファイルに書かず、仕様から読む。
+ */
+const schemas = (() => {
+  const spec = loadSpec();
+  const components = isRecord(spec) && isRecord(spec.components) ? spec.components : {};
+  return isRecord(components.schemas) ? components.schemas : {};
+})();
+
+/** 仕様の部品 schema の、キー key のスキーマ。参照なら参照先の部品を返す。 */
+function propertySchema(schema: string, key: string): Record<string, unknown> {
+  const root = schemas[schema];
+  const property = isRecord(root) && isRecord(root.properties) ? root.properties[key] : undefined;
+  const name = refName(property, 'schemas');
+  const resolved = name === undefined ? property : schemas[name];
+  return isRecord(resolved) ? resolved : {};
+}
+
+const taxRates = Array.isArray(propertySchema('OrderLine', 'taxRate').enum) ? (propertySchema('OrderLine', 'taxRate').enum as unknown[]) : [];
+
+/*
  * キーの表の型ごとの確かめ方。表に、ここに無い型を書いたら、確かめ方が無いことを誤りとして返す
  * (型を足したのに確かめ方を足し忘れると、その型の値が何も確かめずに通るため)。
  */
@@ -89,7 +111,7 @@ const typeChecks: Record<string, (value: unknown) => boolean> = {
   '配列 (1 つ以上)': (value) => Array.isArray(value) && value.length > 0,
   '整数 (1 以上)': (value) => Number.isSafeInteger(value) && (value as number) >= 1,
   '整数 (円)': (value) => Number.isSafeInteger(value) && (value as number) >= 0,
-  '整数 (8 か 10)': (value) => value === 8 || value === 10,
+  '整数 (8 か 10)': (value) => taxRates.length > 0 && taxRates.includes(value),
 };
 
 /** 例の中の、キーの表のある場所のオブジェクトを、配列の要素の中までたどって、その場所と見出しの文とともに返す。 */
@@ -175,12 +197,21 @@ it('例に null が無い (配列の要素も含めて)', () => {
   expect([...examples].flatMap(([name, example]) => nullsIn(example, name))).toEqual([]);
 });
 
-it('例の注文明細は 100 以下で、同じ商品の注文明細が 2 つ以上無い', () => {
+it('例の注文明細は仕様の上限以下で、同じ商品の注文明細が 2 つ以上無い', () => {
+  // 配列のキーと商品 ID のキーはキーの表から、上限はリクエストと表現のスキーマの maxItems から読む (2 つは同じ値にする)。
+  const arrayKey = rows.find((row) => row.place === '' && row.type.startsWith('配列'))?.key;
+  const productKey = rows.find((row) => row.place === arrayKey && row.term === '商品 ID')?.key;
+  expect(arrayKey, 'キーの表の配列のキー').toBeDefined();
+  expect(productKey, 'キーの表の商品 ID のキー').toBeDefined();
+  const limits = ['PlaceOrderRequest', 'Order'].map((schema) => propertySchema(schema, arrayKey ?? '').maxItems);
+  expect(limits.every((limit) => Number.isSafeInteger(limit)), `${limits.join('・')} が上限の整数でない`).toBe(true);
+  expect(new Set(limits).size, 'リクエストと表現の上限').toBe(1);
   const problems: string[] = [];
   for (const [name, example] of examples) {
-    const lines = isRecord(example) && Array.isArray(example.lines) ? example.lines : [];
-    if (lines.length > 100) problems.push(`${name}: 注文明細が ${lines.length} 個`);
-    const productIds = lines.flatMap((line: unknown) => (isRecord(line) && typeof line.productId === 'string' ? [line.productId] : []));
+    const lines = isRecord(example) && Array.isArray(example[arrayKey ?? '']) ? (example[arrayKey ?? ''] as unknown[]) : [];
+    if (lines.length === 0) problems.push(`${name}: 注文明細が無い`);
+    if (lines.length > (limits[0] as number)) problems.push(`${name}: 注文明細が ${lines.length} 個`);
+    const productIds = lines.flatMap((line: unknown) => (isRecord(line) && typeof line[productKey ?? ''] === 'string' ? [line[productKey ?? '']] : []));
     if (new Set(productIds).size !== productIds.length) problems.push(`${name}: 同じ商品の注文明細が 2 つ以上ある`);
   }
   expect(problems).toEqual([]);
@@ -196,7 +227,10 @@ it('注文の例は、リクエストの例と同じ注文を表し、金額は�
   };
   expect(request, 'place-order-request.json が無いか、JSON として読めない').toBeDefined();
   expect(order, 'order.json が無いか、JSON として読めない').toBeDefined();
+  // キーの名前を両方の例で同じに変えると undefined どうしで等しくなるので、比べる値があることも確かめる。
+  expect(request.contactEmail, 'リクエストの例の連絡先メールアドレス').toBeDefined();
   expect(order.contactEmail).toBe(request.contactEmail);
+  expect(request.lines.length, 'リクエストの例の注文明細').toBeGreaterThan(0);
   expect(order.lines.map(({ productId, quantity }) => ({ productId, quantity }))).toStrictEqual(request.lines);
 
   const calculations = isRecord(taxCalculation) && Array.isArray(taxCalculation.examples) ? taxCalculation.examples.filter(isRecord) : [];

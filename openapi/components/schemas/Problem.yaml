@@ -1,0 +1,25 @@
+type: object
+description: 問題の詳細 (RFC 9457)。クライアントは、知らないメンバーを無視する。
+required:
+  - type
+  - title
+  - status
+properties:
+  type:
+    type: string
+    format: uri-reference
+    description: >-
+      問題の型。自前の型は `/problems/` で始まる相対参照で、応答を返したオリジンで解決した URI が識別子になる。汎用の失敗は
+      `about:blank`。
+  title:
+    type: string
+    description: 問題の型の題。
+  status:
+    type: integer
+    format: int32
+    minimum: 100
+    maximum: 599
+    description: 応答のステータスコードと同じ値。
+  detail:
+    type: string
+    description: この発生の説明。クライアントは、読み取って処理を分けない。

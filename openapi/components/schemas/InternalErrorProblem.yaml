@@ -1,0 +1,16 @@
+description: サーバーの予期しない誤り。
+allOf:
+  - $ref: ./Problem.yaml
+  - type: object
+    required:
+      - trackingId
+    properties:
+      type:
+        const: /problems/internal-error
+      title:
+        const: Unexpected error
+      status:
+        const: 500
+      trackingId:
+        type: string
+        description: 追跡 ID。同じ値をサーバーのログにも残す。問い合わせのときに伝える。

@@ -11,10 +11,14 @@
   "scripts": {
     "typecheck": "tsc",
     "test": "vitest run",
-    "verify": "npm run typecheck && npm run test",
-    "docs:swagger": "node tools/swagger-ui/server.ts"
+    "lint": "redocly lint openapi/openapi.yaml --lint-config=error",
+    "verify": "npm run typecheck && npm run test && npm run lint",
+    "bundle": "redocly bundle openapi/openapi.yaml --output dist/openapi.yaml",
+    "docs:build": "npm run bundle && redocly build-docs dist/openapi.yaml --output dist/docs/index.html",
+    "docs:swagger": "npm run bundle && node tools/swagger-ui/server.ts"
   },
   "devDependencies": {
+    "@redocly/cli": "2.72.1",
     "@types/node": "26.6.6",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",

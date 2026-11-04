@@ -1,0 +1,6 @@
+
+> rest-api-order@0.0.0 bundle
+> redocly bundle openapi/openapi.yaml --output dist/openapi.yaml
+
+bundling openapi/openapi.yaml...
+📦 Created a bundle for openapi/openapi.yaml at dist/openapi.yaml 12ms.

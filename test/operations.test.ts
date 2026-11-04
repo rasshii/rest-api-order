@@ -80,7 +80,31 @@ function shapeProblems(value: unknown): string[] {
 }
 
 const problems = shapeProblems(raw);
-const operations: Operation[] = problems.length === 0 ? (raw as { operations: Operation[] }).operations : [];
+const parsed: Operation[] = problems.length === 0 ? (raw as { operations: Operation[] }).operations : [];
+
+/*
+ * 対応表の操作。形が崩れると空になり、行ごとに確かめる it が何も確かめずに通る (-t で 1 本だけ回したときも) ので、
+ * どの it もこれを通して読み、形の崩れと空をその it の失敗にする。
+ */
+function loadedOperations(): Operation[] {
+  expect(problems).toEqual([]);
+  expect(parsed.length).toBeGreaterThan(0);
+  return parsed;
+}
+
+/** 文書の中の、pattern に当たる行の数。拾う正規表現より緩く数え、拾えない書き方の行が黙って抜けていないかを比べる。 */
+function countLines(text: string, pattern: RegExp): number {
+  return text.split(/\r?\n/).filter((line) => pattern.test(line)).length;
+}
+
+/** 見出しの行が header の表の、本体の行 (見出しと区切りの行の次から、空行の前まで) の数。 */
+function tableRowCount(text: string, header: string): number {
+  const lines = text.split(/\r?\n/);
+  const start = lines.indexOf(header);
+  if (start < 0) return 0;
+  const end = lines.findIndex((line, index) => index > start && line.trim() === '');
+  return lines.slice(start + 2, end < 0 ? undefined : end).length;
+}
 
 /** Markdown の中から、正規表現の 1 つ目の組に当たる文字列を、書いた順に返す。 */
 function captures(text: string, pattern: RegExp): string[] {
@@ -102,15 +126,19 @@ it('対応表の形が崩れていない', () => {
 });
 
 it('ユースケースの文書のユースケースが、対応表にちょうど 1 回ずつ現れる', () => {
+  const operations = loadedOperations();
   const documented = captures(useCases, /^## ユースケース: (.+)$/gm);
   expect(documented.length).toBeGreaterThan(0);
+  expect(documented.length, 'ユースケースの見出しの形').toBe(countLines(useCases, /^##\s*ユースケース/));
   expect(operations.map((operation) => operation.useCase).sort()).toEqual([...documented].sort());
 });
 
 it('ボードのコマンドが対応表にすべて現れ、対応表の読むものはボードのリードモデルにある', () => {
+  const operations = loadedOperations();
   const commands = captures(board, /"コマンド<br\/>([^"]+)"/g);
   const readModels = captures(board, /"リードモデル<br\/>([^"]+)"/g);
   expect(commands.length).toBeGreaterThan(0);
+  expect(commands.length, 'ボードのコマンドの付箋の形').toBe(countLines(board, /コマンド</));
   expect(operations.flatMap((operation) => operation.command ?? []).sort()).toEqual([...commands].sort());
   for (const operation of operations) {
     if (operation.readModel !== undefined) expect(readModels).toContain(operation.readModel);
@@ -118,6 +146,8 @@ it('ボードのコマンドが対応表にすべて現れ、対応表の読む�
 });
 
 it('集約のメソッドが、ドメインモデルのクラス図のクラスにある', () => {
+  const operations = loadedOperations();
+  expect(operations.filter((operation) => operation.aggregateMethod !== undefined).length).toBeGreaterThan(0);
   for (const operation of operations) {
     if (operation.aggregateMethod === undefined) continue;
     const [className, methodName] = operation.aggregateMethod.split('.');
@@ -128,12 +158,15 @@ it('集約のメソッドが、ドメインモデルのクラス図のクラス�
 it('パスの変数の名前が、用語集の code にある', () => {
   const terms = isRecord(glossary) && Array.isArray(glossary.terms) ? glossary.terms : [];
   const codes = terms.flatMap((term: unknown) => (isRecord(term) && isText(term.code) ? [term.code] : []));
+  const operations = loadedOperations();
+  expect(codes.length).toBeGreaterThan(0);
   for (const operation of operations) {
     for (const variable of captures(operation.path, /\{([^}]+)\}/g)) expect(codes, operation.path).toContain(variable);
   }
 });
 
 it('操作の名前も、メソッドとパスの組も、対応表の中で重ならない', () => {
+  const operations = loadedOperations();
   const ids = operations.map((operation) => operation.operationId);
   const routes = operations.map((operation) => `${operation.method} ${operation.path}`);
   expect(new Set(ids).size).toBe(ids.length);
@@ -141,8 +174,10 @@ it('操作の名前も、メソッドとパスの組も、対応表の中で重�
 });
 
 it('エンドポイントの一覧と対応表が、同じ操作を同じメソッドとパスで持つ', () => {
+  const operations = loadedOperations();
   const listed = [...endpoints.matchAll(/^\| `([A-Z]+ \/[^`]*)` \| `([^`]+)` \|/gm)].map((match) => `${match[1]} ${match[2]}`);
   expect(listed.length).toBeGreaterThan(0);
+  expect(listed.length, 'エンドポイントの一覧の行の形').toBe(tableRowCount(endpoints, '| メソッドとパス | 操作の名前 | 成功したとき | 失敗したとき |'));
   const table = operations.map((operation) => `${operation.method} ${operation.path} ${operation.operationId}`);
   expect(table.sort()).toEqual(listed.sort());
 });

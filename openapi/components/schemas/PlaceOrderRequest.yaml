@@ -1,0 +1,25 @@
+type: object
+description: 注文するのリクエスト。ここに無いキーがあれば、注文を受け付けない (`/problems/invalid-request`)。
+additionalProperties: false
+required:
+  - contactEmail
+  - lines
+properties:
+  contactEmail:
+    $ref: ./ContactEmail.yaml
+  lines:
+    type: array
+    description: 注文明細。同じ商品の注文明細は 1 つまでで、サーバーが確かめる。
+    minItems: 1
+    maxItems: 100
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - productId
+        - quantity
+      properties:
+        productId:
+          $ref: ./ProductId.yaml
+        quantity:
+          $ref: ./Quantity.yaml

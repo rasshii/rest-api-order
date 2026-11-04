@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { normalizeOutput } from './support/replacements.ts';
 import {
   assertAlive,
@@ -75,6 +75,27 @@ describe('出力のそろえ方', () => {
     expect(normalizeOutput('Date: yesterday\n')).toBe('Date: yesterday\n');
   });
 
+  it('Redocly CLI の lint と bundle の所要時間を、数でも <test> でも固定の値にし、行の形が違えば置き換えない', () => {
+    const actual = [
+      'openapi/openapi.yaml: validated in 48ms',
+      'openapi/openapi.yaml: validated in <test>ms',
+      '📦 Created a bundle for openapi/openapi.yaml at dist/openapi.yaml 7ms.',
+      '📦 Created a bundle for openapi/openapi.yaml at dist/openapi.yaml <test>ms.',
+      'validated in 48ms',
+      '📦 Created a bundle for openapi/openapi.yaml 7ms.',
+    ].join('\n');
+    expect(normalizeOutput(actual)).toBe(
+      [
+        'openapi/openapi.yaml: validated in 35ms',
+        'openapi/openapi.yaml: validated in 35ms',
+        '📦 Created a bundle for openapi/openapi.yaml at dist/openapi.yaml 12ms.',
+        '📦 Created a bundle for openapi/openapi.yaml at dist/openapi.yaml 12ms.',
+        'validated in 48ms',
+        '📦 Created a bundle for openapi/openapi.yaml 7ms.',
+      ].join('\n'),
+    );
+  });
+
   it('最後の空でない行をステータスコードとして読む', () => {
     expect(lastLine('{"orderId":"1"}\n201\n')).toBe('201');
     expect(lastLine('{"orderId":"1"}\n201\n')).not.toBe('200');
@@ -93,6 +114,19 @@ describe('コマンドの実行', () => {
 
   it('末尾に改行が無いコマンドも同じ結果になる', () => {
     expect(runCommand('echo out\necho err >&2\nexit 3', root)).toEqual({ output: 'out\nerr\n', status: 3 });
+  });
+
+  it('GitHub Actions の環境変数があっても、Redocly CLI の出力に色の符号が付かない', () => {
+    vi.stubEnv('CI', 'true');
+    vi.stubEnv('GITHUB_ACTIONS', 'true');
+    try {
+      const { output, status } = runCommand('npx redocly lint test/fixtures/lint/valid.yaml', root);
+      expect(status).toBe(0);
+      expect(output).toContain('validating test/fixtures/lint/valid.yaml...');
+      expect(output.includes('\u001b[')).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

@@ -1,0 +1,8 @@
+description: サーバーの予期しない誤り。本文の `trackingId` を問い合わせに使う。
+content:
+  application/problem+json:
+    schema:
+      $ref: ../schemas/InternalErrorProblem.yaml
+    examples:
+      internal-error:
+        $ref: ../examples/internal-error.yaml

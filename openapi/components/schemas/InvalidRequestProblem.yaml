@@ -1,0 +1,31 @@
+description: 本文が JSON として読めないか、形や値が表現の決まりと、注文するの手順 2 の確かめに合わない。
+allOf:
+  - $ref: ./Problem.yaml
+  - type: object
+    required:
+      - errors
+    properties:
+      type:
+        const: /problems/invalid-request
+      title:
+        const: Invalid request
+      status:
+        const: 400
+      errors:
+        type: array
+        description: 本文の誤りを 1 つずつ。見つけたものをすべて並べる。
+        minItems: 1
+        items:
+          type: object
+          required:
+            - pointer
+            - detail
+          properties:
+            pointer:
+              type: string
+              description: >-
+                誤りの位置。JSON Pointer (RFC 6901) で、先頭に `#` を付けない。本文が JSON
+                として読めないときは、本文全体を指す空の文字列。
+            detail:
+              type: string
+              description: 誤りの説明。

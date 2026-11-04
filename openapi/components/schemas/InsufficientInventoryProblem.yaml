@@ -1,0 +1,20 @@
+description: 在庫が数量より少ない商品がある。一部の商品だけが足りないときも、注文全体を受け付けない。
+allOf:
+  - $ref: ./Problem.yaml
+  - type: object
+    required:
+      - productIds
+    properties:
+      type:
+        const: /problems/insufficient-inventory
+      title:
+        const: Insufficient inventory
+      status:
+        const: 400
+      productIds:
+        type: array
+        description: 在庫が足りない商品の商品 ID。在庫の数は返さない。
+        minItems: 1
+        uniqueItems: true
+        items:
+          $ref: ./ProductId.yaml

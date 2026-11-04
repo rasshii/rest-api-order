@@ -1,0 +1,5 @@
+summary: 注文が無い
+value:
+  type: /problems/order-not-found
+  title: Order not found
+  status: 404

@@ -1,0 +1,20 @@
+description: 登録されていない商品がある。
+allOf:
+  - $ref: ./Problem.yaml
+  - type: object
+    required:
+      - productIds
+    properties:
+      type:
+        const: /problems/unknown-product
+      title:
+        const: Unknown product
+      status:
+        const: 400
+      productIds:
+        type: array
+        description: 登録されていない商品の商品 ID。
+        minItems: 1
+        uniqueItems: true
+        items:
+          $ref: ./ProductId.yaml

@@ -1,0 +1,11 @@
+description: 本文のメディアタイプが `application/json` でない。
+allOf:
+  - $ref: ./Problem.yaml
+  - type: object
+    properties:
+      type:
+        const: about:blank
+      title:
+        const: Unsupported Media Type
+      status:
+        const: 415

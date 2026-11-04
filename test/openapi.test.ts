@@ -1,37 +1,21 @@
 /*
- * 注文 API の仕様 (openapi/openapi.yaml) が、対応表・表現の決まり・例のファイルと食い違わないことを確かめる。
+ * 注文 API の仕様 (openapi/ に分けたものを束ねた文書) が、対応表・表現の決まり・例のファイルと食い違わないことを確かめる。
  * 仕様はこれらを写したものなので、片方だけを直すと、仕様と文書が別のことを言うようになるため。
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { loadSpec, schemaValidator } from './support/openapi.ts';
+import { entries, isRecord, loadSpec, mediaTypes, methods, refName, schemaValidator } from './support/openapi.ts';
 
 function read(path: string): string {
   return readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** 値の中の、名前で並ぶオブジェクト (paths・components の各部など)。無ければ空。 */
-function entries(value: unknown): [string, unknown][] {
-  return isRecord(value) ? Object.entries(value) : [];
 }
 
 const spec = loadSpec();
 const components = isRecord(spec) && isRecord(spec.components) ? spec.components : {};
 const schemas = isRecord(components.schemas) ? components.schemas : {};
 const namedExamples = isRecord(components.examples) ? components.examples : {};
-
-/** '#/components/<種類>/<名前>' の参照なら名前を、そうでなければ undefined を返す。 */
-function refName(value: unknown, kind: string): string | undefined {
-  if (!isRecord(value) || typeof value.$ref !== 'string') return undefined;
-  const prefix = `#/components/${kind}/`;
-  return value.$ref.startsWith(prefix) ? value.$ref.slice(prefix.length) : undefined;
-}
 
 /** スキーマの部品の参照なら、参照先の部品を返す。参照でなければ、そのまま返す。 */
 function deref(value: unknown): unknown {
@@ -40,10 +24,9 @@ function deref(value: unknown): unknown {
 }
 
 /*
- * Path Item で操作を表すフィールド (OpenAPI 3.1 の HTTP のメソッド)。
  * Path Item に書いてよい操作でないキー。ほかのキー ($ref を含む) は、操作を見落とさないよう誤りにする。
+ * 束ねた文書では、分けたファイルを指す Path Item の $ref は中身に置き換わっている。
  */
-const methods = ['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace'];
 const pathItemKeys = ['summary', 'description', 'servers', 'parameters'];
 
 /** 仕様の操作を「メソッド パス operationId」の文にして返す。拾えないものは problems に入れる。 */
@@ -112,8 +95,8 @@ const keyHeader = '| キー | 場所 | 語 | 型 | 注文するのリクエス�
 const keyPattern = /^\| `([^`]+)` \| (?:最上位|`([^`]+)` の要素) \| [^|]+ \| [^|]+ \| (入れる|入れない) \| (入れる|入れない) \|$/;
 
 /*
- * キーの表の列と、その列のキーを持つスキーマの部品。表の型と仕様のスキーマのどちらを元にするかはまだ決めていないので、
- * ここでは型を比べず、キーの名前・場所と、required (1 周目は省いてよいキーが無いので、入るキーはすべて必須) だけを比べる。
+ * キーの表の列と、その列のキーを持つスキーマの部品。型と範囲の正本は仕様のスキーマで、表の型の列は読む人のための要約なので
+ * (docs/api-design/guidelines.md)、型は比べない。キーの名前・場所と、required (1 周目は省いてよいキーが無いので、入るキーはすべて必須) を比べる。
  */
 const columns = [
   { column: 'inRequest', schema: 'PlaceOrderRequest' },
@@ -194,35 +177,11 @@ it('仕様の名前付きの例が、同じ名前の例のファイルと同じ�
   expect(Object.keys(namedExamples).sort()).toEqual(expected);
 });
 
-/** 操作の requestBody と応答 (部品の応答の参照もたどる) の Media Type Object を、置き場の名前とともに返す。 */
-function mediaTypes(): { where: string; media: unknown }[] {
-  const responses = isRecord(components.responses) ? components.responses : {};
-  const found: { where: string; media: unknown }[] = [];
-  const paths = isRecord(spec) ? spec.paths : undefined;
-  for (const [path, item] of entries(paths)) {
-    for (const [method, operation] of entries(item).filter(([key]) => methods.includes(key))) {
-      const where = `${method.toUpperCase()} ${path}`;
-      const body = isRecord(operation) ? operation.requestBody : undefined;
-      for (const [type, media] of entries(isRecord(body) ? body.content : undefined)) {
-        found.push({ where: `${where} のリクエストの ${type}`, media });
-      }
-      for (const [code, response] of entries(isRecord(operation) ? operation.responses : undefined)) {
-        const name = refName(response, 'responses');
-        const resolved = name === undefined ? response : responses[name];
-        for (const [type, media] of entries(isRecord(resolved) ? resolved.content : undefined)) {
-          found.push({ where: `${where} の ${code} の ${type}`, media });
-        }
-      }
-    }
-  }
-  return found;
-}
-
 it('仕様の名前付きの例が、置かれた場所のスキーマに合い、どれもどこかに置かれている', () => {
   const validator = schemaValidator(spec);
   const problems: string[] = [];
   const used = new Set<string>();
-  for (const { where, media } of mediaTypes()) {
+  for (const { where, media } of mediaTypes(spec)) {
     const schema = refName(isRecord(media) ? media.schema : undefined, 'schemas');
     if (schema === undefined) {
       problems.push(`${where} の schema が components/schemas の部品の参照でない`);

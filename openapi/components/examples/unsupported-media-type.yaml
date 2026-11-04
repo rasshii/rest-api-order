@@ -1,0 +1,5 @@
+summary: 本文が application/json でない
+value:
+  type: about:blank
+  title: Unsupported Media Type
+  status: 415

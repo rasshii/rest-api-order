@@ -239,13 +239,16 @@ export function runCurl(
  * コマンドを実行し、標準出力と標準エラー出力を、端末に出る順で 1 つにまとめて返す。
  * 2 つの出力に同じファイルの記述子を渡すと、書いた順に同じファイルへ並ぶ。
  * コマンドの後ろに 2>&1 を文字で足すと、末尾の改行の後の別のコマンドになり、まとまらない。
+ * NO_COLOR を渡すのは、Redocly CLI などが端末でなくても CI と GITHUB_ACTIONS の環境変数があると色の符号を出し、
+ * 記事に載せた出力と食い違うため。
  */
 export function runCommand(command: string, cwd: string): { output: string; status: number } {
   const dir = mkdtempSync(join(tmpdir(), 'snippet-'));
   const path = join(dir, 'output.txt');
   const fd = openSync(path, 'w');
   try {
-    const result = spawnSync('bash', ['-c', command], { cwd, stdio: ['ignore', fd, fd], timeout: 300_000 });
+    const env = { ...process.env, NO_COLOR: '1' };
+    const result = spawnSync('bash', ['-c', command], { cwd, env, stdio: ['ignore', fd, fd], timeout: 300_000 });
     if (result.error) throw result.error;
     if (result.status === null) throw new Error(`コマンドがシグナル ${result.signal} で終わった`);
     return { output: readFileSync(path, 'utf8'), status: result.status };

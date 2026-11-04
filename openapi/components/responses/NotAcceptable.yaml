@@ -1,0 +1,8 @@
+description: '`Accept` が `application/json` を受け入れない。'
+content:
+  application/problem+json:
+    schema:
+      $ref: ../schemas/NotAcceptableProblem.yaml
+    examples:
+      not-acceptable:
+        $ref: ../examples/not-acceptable.yaml

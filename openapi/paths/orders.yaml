@@ -1,0 +1,74 @@
+post:
+  tags:
+    - orders
+  operationId: placeOrder
+  summary: 注文する
+  description: 商品と数量の組と連絡先メールアドレスを受け取り、注文を受付の状態で作る。商品の今の価格を単価として注文明細に写し、合計と消費税額を求め、在庫を引き当てる。
+  security: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/PlaceOrderRequest.yaml
+        examples:
+          place-order-request:
+            $ref: ../components/examples/place-order-request.yaml
+  responses:
+    '201':
+      description: 注文を受け付けた。本文は作った注文の表現。
+      headers:
+        Location:
+          description: 作った注文の URL。相対参照 (`/orders/{orderId}`) で返す。
+          required: true
+          schema:
+            type: string
+            format: uri-reference
+          example: /orders/01a194b4-978e-7c3a-9f21-6d4b8e2a1c05
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Order.yaml
+          examples:
+            order:
+              $ref: ../components/examples/order.yaml
+    '400':
+      description: |
+        注文を受け付けなかった。どの失敗かは `type` で見分ける。
+
+        - `/problems/invalid-request`: 本文の形か値の誤り
+        - `/problems/unknown-product`: 登録されていない商品がある
+        - `/problems/insufficient-inventory`: 在庫が数量より少ない商品がある
+
+        複数の失敗があるときは、本文の形・商品・在庫の順に確かめ、最初に当たった失敗だけを返す。
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../components/schemas/PlaceOrderBadRequestProblem.yaml
+          examples:
+            invalid-request:
+              $ref: ../components/examples/invalid-request.yaml
+            unknown-product:
+              $ref: ../components/examples/unknown-product.yaml
+            insufficient-inventory:
+              $ref: ../components/examples/insufficient-inventory.yaml
+    '406':
+      $ref: ../components/responses/NotAcceptable.yaml
+    '415':
+      description: 本文のメディアタイプが `application/json` でない。
+      headers:
+        Accept:
+          description: 受け付ける本文のメディアタイプ。
+          required: true
+          schema:
+            type: string
+          example: application/json
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../components/schemas/UnsupportedMediaTypeProblem.yaml
+          examples:
+            unsupported-media-type:
+              $ref: ../components/examples/unsupported-media-type.yaml
+    '500':
+      $ref: ../components/responses/InternalError.yaml

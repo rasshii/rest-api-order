@@ -1,9 +1,10 @@
 /*
- * 注文 API の仕様 (openapi/openapi.yaml) を、ブラウザの Swagger UI で読むための配信のサーバー。
+ * 注文 API の仕様を、ブラウザの Swagger UI で読むための配信のサーバー。
  * 画面のファイルは npm の swagger-ui-dist のものを配り、読む仕様を決める初期化の script だけをここで作る。
- * 仕様のファイルはリクエストのたびに読み直すので、仕様を直したらブラウザで読み込み直せば反映される。
+ * 配る仕様は、npm run bundle が openapi/ から束ねた dist/openapi.yaml (モックと build-docs も同じファイルを読む)。
+ * リクエストのたびに読み直すので、仕様を直したら npm run bundle を回してからブラウザで読み込み直せば反映される。
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
@@ -11,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const port = 3903;
-const spec = fileURLToPath(new URL('../../openapi/openapi.yaml', import.meta.url));
+const spec = fileURLToPath(new URL('../../dist/openapi.yaml', import.meta.url));
 
 /*
  * swagger-ui-dist の index.js は、読み込むとブラウザ向けの bundle まで読み込むので import しない。
@@ -61,7 +62,11 @@ createServer((req, res) => {
     res.end();
     return;
   }
-  if (path === '/openapi.yaml') return send(res, 200, 'application/yaml', readFileSync(spec));
+  if (path === '/openapi.yaml') {
+    // 束ねる前や dist/ を消した後に readFileSync が投げると、サーバーのプロセスが止まるので、先に有無を見る。
+    if (!existsSync(spec)) return send(res, 500, 'text/plain; charset=utf-8', 'dist/openapi.yaml がありません。npm run bundle で作ってください\n');
+    return send(res, 200, 'application/yaml', readFileSync(spec));
+  }
   if (path === '/swagger-initializer.js') return send(res, 200, 'text/javascript; charset=utf-8', initializer);
   const name = path === '/' ? '/index.html' : path;
   const contentType = assets[name];
