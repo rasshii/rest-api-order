@@ -1,0 +1,11 @@
+description: その注文 ID の注文が無い。
+allOf:
+  - $ref: ./Problem.yaml
+  - type: object
+    properties:
+      type:
+        const: /problems/order-not-found
+      title:
+        const: Order not found
+      status:
+        const: 404

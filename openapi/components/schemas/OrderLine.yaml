@@ -1,0 +1,22 @@
+type: object
+description: 注文明細の表現。
+required:
+  - productId
+  - quantity
+  - unitPrice
+  - taxRate
+properties:
+  productId:
+    $ref: ./ProductId.yaml
+  quantity:
+    $ref: ./Quantity.yaml
+  unitPrice:
+    $ref: ./Amount.yaml
+    description: 単価。注文した時点の商品の価格を写した金額。
+  taxRate:
+    type: integer
+    format: int32
+    enum:
+      - 8
+      - 10
+    description: 税率 (百分率)。標準税率は 10、軽減税率は 8。

@@ -1,0 +1,40 @@
+type: object
+description: 注文の表現。後からキーを足すので、クライアントは知らないキーを無視する。
+required:
+  - orderId
+  - status
+  - placedAt
+  - contactEmail
+  - lines
+  - total
+  - taxAmount
+properties:
+  orderId:
+    $ref: ./OrderId.yaml
+  status:
+    type: string
+    description: >-
+      注文の状態の code。値は後から増えるので、クライアントは知らない値を受け取っても止まらないようにする。今の値は `PENDING` (受付)
+      だけ。
+    examples:
+      - PENDING
+  placedAt:
+    type: string
+    format: date-time
+    pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$
+    description: 注文日時。UTC で書き、末尾を `Z` にし、秒の小数を 3 桁にそろえる。
+  contactEmail:
+    $ref: ./ContactEmail.yaml
+  lines:
+    type: array
+    description: 注文明細。同じ商品の注文明細は 1 つまで。
+    minItems: 1
+    maxItems: 100
+    items:
+      $ref: ./OrderLine.yaml
+  total:
+    $ref: ./Amount.yaml
+    description: 合計。注文明細ごとの単価と数量の積の和。
+  taxAmount:
+    $ref: ./Amount.yaml
+    description: 消費税額。合計に含まれる消費税の額。

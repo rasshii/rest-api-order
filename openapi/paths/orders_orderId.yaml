@@ -1,0 +1,38 @@
+parameters:
+  - name: orderId
+    in: path
+    required: true
+    description: 注文するの応答の `orderId` を、そのまま入れる。注文 ID の形でない値も、その注文 ID の注文が無いものとして 404 になる。
+    schema:
+      $ref: ../components/schemas/OrderId.yaml
+    example: 01a194b4-978e-7c3a-9f21-6d4b8e2a1c05
+get:
+  tags:
+    - orders
+  operationId: getOrder
+  summary: 注文を確かめる
+  description: 注文 ID の注文の、状態・注文日時・注文明細・合計・消費税額・連絡先メールアドレスを返す。
+  security: []
+  responses:
+    '200':
+      description: 注文の表現。
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Order.yaml
+          examples:
+            order:
+              $ref: ../components/examples/order.yaml
+    '404':
+      description: その注文 ID の注文が無い。
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../components/schemas/OrderNotFoundProblem.yaml
+          examples:
+            order-not-found:
+              $ref: ../components/examples/order-not-found.yaml
+    '406':
+      $ref: ../components/responses/NotAcceptable.yaml
+    '500':
+      $ref: ../components/responses/InternalError.yaml

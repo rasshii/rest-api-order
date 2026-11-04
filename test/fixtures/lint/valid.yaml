@@ -1,0 +1,128 @@
+# lint の落ちる例の土台。注文 API を小さくした仕様で、redocly.yaml のどの規則にも当たらない。
+# 規則の名前のディレクトリにある落ちる例は、これの 1 か所 (1 つの応答・スキーマ・値) だけを変えて、その規則だけに当たるようにしたもの (test/lint.test.ts)。
+openapi: 3.1.2
+info:
+  title: 落ちる例の土台
+  version: 0.1.0
+  description: lint の規則を確かめるための仕様。
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: /
+tags:
+  - name: orders
+    description: 注文
+paths:
+  /orders:
+    post:
+      tags: [orders]
+      operationId: placeOrder
+      summary: 注文する
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+            examples:
+              place-order-request:
+                value:
+                  contactEmail: taro.test@example.com
+      responses:
+        '201':
+          description: 注文を受け付けた。
+          headers:
+            Location:
+              description: 作った注文の URL。
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: 注文を受け付けなかった。
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/InvalidRequestProblem'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{orderId}:
+    get:
+      tags: [orders]
+      operationId: getOrder
+      summary: 注文を確かめる
+      security: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: 注文 ID。
+          schema:
+            type: string
+          example: ord-1
+      responses:
+        '200':
+          description: 注文。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: 注文が無い。
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  responses:
+    InternalError:
+      description: サーバーの予期しない誤り。
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    PlaceOrderRequest:
+      type: object
+      required: [contactEmail]
+      properties:
+        contactEmail:
+          type: string
+          description: 連絡先メールアドレス。
+    Order:
+      type: object
+      required: [orderId]
+      properties:
+        orderId:
+          type: string
+          description: 注文 ID。
+          examples: [ord-1]
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+    InvalidRequestProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  pointer:
+                    type: string

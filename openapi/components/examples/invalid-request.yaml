@@ -1,0 +1,11 @@
+summary: 連絡先メールアドレスの形と、数量が誤っている
+value:
+  type: /problems/invalid-request
+  title: Invalid request
+  status: 400
+  detail: The request body has 2 errors.
+  errors:
+    - pointer: /contactEmail
+      detail: Must be an email address.
+    - pointer: /lines/0/quantity
+      detail: Must be an integer of 1 or more.

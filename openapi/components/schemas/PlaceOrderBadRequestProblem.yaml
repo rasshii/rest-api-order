@@ -1,0 +1,5 @@
+description: 注文するの 400 の本文。3 つの問題の型のどれか 1 つ。
+oneOf:
+  - $ref: ./InvalidRequestProblem.yaml
+  - $ref: ./UnknownProductProblem.yaml
+  - $ref: ./InsufficientInventoryProblem.yaml

@@ -5,6 +5,12 @@
 const rules: { pattern: RegExp; replacement: string }[] = [
   // HTTP の応答の Date ヘッダ (curl -i・-I の出力)
   { pattern: /^Date: [A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/gm, replacement: 'Date: Sat, 31 Oct 2026 09:00:00 GMT' },
+  /*
+   * Redocly CLI の lint と bundle の所要時間。NODE_ENV が test のとき (Vitest はそうする) は、数でなく <test> と出す。
+   * テストの中でも読者の端末でも同じ期待値になるよう、どちらも同じ値にそろえる。
+   */
+  { pattern: /^(\S+): validated in (?:\d+|<test>)ms$/gm, replacement: '$1: validated in 35ms' },
+  { pattern: /^📦 Created a bundle for (\S+) at (\S+) (?:\d+|<test>)ms\.$/gm, replacement: '📦 Created a bundle for $1 at $2 12ms.' },
 ];
 
 /**

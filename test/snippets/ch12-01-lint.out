@@ -1,0 +1,9 @@
+
+> rest-api-order@0.0.0 lint
+> redocly lint openapi/openapi.yaml --lint-config=error
+
+validating openapi/openapi.yaml...
+openapi/openapi.yaml: validated in 35ms
+
+Woohoo! Your API description is valid. 🎉
+

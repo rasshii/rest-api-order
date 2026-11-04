@@ -1,0 +1,2 @@
+type: string
+description: サーバーが作る注文 ID。クライアントは中身を読まず、文字列のまま使う。

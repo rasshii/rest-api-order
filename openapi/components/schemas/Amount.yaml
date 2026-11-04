@@ -1,0 +1,5 @@
+type: integer
+format: int64
+minimum: 0
+maximum: 9007199254740991
+description: 消費税を含んだ円の整数。

@@ -1,0 +1,5 @@
+summary: Accept が application/json を受け入れない
+value:
+  type: about:blank
+  title: Not Acceptable
+  status: 406

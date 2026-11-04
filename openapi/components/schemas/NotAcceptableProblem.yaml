@@ -1,0 +1,11 @@
+description: '`Accept` が `application/json` を受け入れない。'
+allOf:
+  - $ref: ./Problem.yaml
+  - type: object
+    properties:
+      type:
+        const: about:blank
+      title:
+        const: Not Acceptable
+      status:
+        const: 406
