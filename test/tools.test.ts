@@ -3,9 +3,11 @@
  * 本文を受け取る途中で切れたリクエストの後も止まらずに応答すること (読者が curl を途中で止めても、同じサーバーで
  * 記事の次の例を続けられるようにするため) と、商品のサーバーが受け付けるリクエストの形。
  */
-import { readFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { connect } from 'node:net';
 import type { Socket } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
@@ -15,10 +17,17 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const snippets = fileURLToPath(new URL('./snippets/', import.meta.url));
 const servers = readServersFile(snippets);
 
-/** 記事の例と同じ servers.json と .server でサーバーを起動し、fn の後に止める。 */
-async function withServer(name: string, fn: (port: number) => Promise<void>): Promise<void> {
+/**
+ * 記事の例と同じ servers.json の待ち方でサーバーを起動し、fn の後に止める。
+ * 起動のコマンドと置き場は、指定が無ければ .server とリポジトリの root。
+ */
+async function withServer(
+  name: string,
+  fn: (port: number) => Promise<void>,
+  { command = readFileSync(`${snippets}${name}.server`, 'utf8'), cwd = root } = {},
+): Promise<void> {
   const spec = servers.servers[name];
-  const server = await startServer(name, spec, readFileSync(`${snippets}${name}.server`, 'utf8'), root);
+  const server = await startServer(name, spec, command, cwd);
   try {
     await fn(spec.port);
     assertAlive(server);
@@ -113,5 +122,34 @@ describe('商品のサーバーが受け付けるリクエストの形', () => {
       expect(await post('application/json-patch+json')).toBe(415);
       expect(await post('text/plain; charset=application/json')).toBe(415);
     });
+  });
+});
+
+describe('Swagger UI の配信のサーバー', () => {
+  it('request-target が絶対形式 (http://…) でも、パスで応答を選ぶ', async () => {
+    await withServer('ch11-swagger-ui', async (port) => {
+      expect(await statusLineOf(port, `GET http://localhost:${port}/openapi.yaml HTTP/1.1`)).toBe('HTTP/1.1 200 OK');
+    });
+  });
+
+  it('配る仕様のファイルが無いと 500 を返し、止まらない', async () => {
+    // リポジトリのファイルを動かさないよう、サーバーのファイルだけを一時のディレクトリに写し、仕様のファイルを置かずに起動する。
+    const dir = mkdtempSync(join(tmpdir(), 'swagger-ui-'));
+    try {
+      mkdirSync(join(dir, 'tools/swagger-ui'), { recursive: true });
+      copyFileSync(join(root, 'tools/swagger-ui/server.ts'), join(dir, 'tools/swagger-ui/server.ts'));
+      copyFileSync(join(root, 'package.json'), join(dir, 'package.json'));
+      symlinkSync(join(root, 'node_modules'), join(dir, 'node_modules'));
+      await withServer(
+        'ch11-swagger-ui',
+        async (port) => {
+          expect((await fetch(`http://localhost:${port}/openapi.yaml`)).status).toBe(500);
+          expect((await fetch(`http://localhost:${port}/`)).status).toBe(200);
+        },
+        { command: 'node tools/swagger-ui/server.ts', cwd: dir },
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

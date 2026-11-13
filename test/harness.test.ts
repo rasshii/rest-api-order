@@ -26,9 +26,11 @@ import {
   readServersFile,
   runCommand,
   runCurl,
+  ServerPool,
   startServer,
   stopServer,
 } from './support/snippets.ts';
+import type { RunningServer } from './support/snippets.ts';
 
 /** bash -c <script> を新しいプロセスグループで起こし、そのグループの ID (先頭の PID) を返す。 */
 function spawnGroup(script: string): number {
@@ -227,4 +229,76 @@ describe('サーバーとポート', () => {
       await stopServer(server);
     }
   });
+
+  it('起動の条件が成り立った直後に起動のコマンドが終わっていれば、孫のプロセスまで止めてから例外にする', async () => {
+    // bash は ready を出してすぐ終わり、後ろで起こした node だけがポートを持って残る。
+    await expect(
+      startServer('ch00-web', { port, ready: { output: 'ready' } }, `node test/fixtures/server.ts ${port} & echo ready`, root),
+    ).rejects.toThrow('サーバー ch00-web');
+    for (let i = 0; i < 30 && !(await isPortFree(port)); i++) await sleep(100);
+    await expect(assertPortFree(port)).resolves.toBeUndefined();
+  });
 });
+
+describe('起動したサーバーの持ち方 (ServerPool)', () => {
+  // 起動と停止の関数を差し替えるので、本物のサーバーは起動しない。名前だけを持つ RunningServer で足りる。
+  const fake = (name: string) => ({ name }) as RunningServer;
+
+  it('同じ名前のサーバーを起動の途中にもう一度頼んでも、1 回しか起動しない', async () => {
+    let calls = 0;
+    let finish: (server: RunningServer) => void = () => {};
+    const pool = new ServerPool(
+      () => {
+        calls++;
+        return new Promise<RunningServer>((resolve) => (finish = resolve));
+      },
+      async () => {},
+    );
+    const first = pool.get('a');
+    const second = pool.get('a');
+    finish(fake('a'));
+    expect(await second).toBe(await first);
+    expect(calls).toBe(1);
+  });
+
+  it('止めるのに 1 つ失敗しても、ほかを止めてから例外にし、持っているサーバーを空にする', async () => {
+    const stopped: string[] = [];
+    const pool = new ServerPool(
+      async (name) => fake(name),
+      async (server) => {
+        if (server.name === 'a') throw new Error('a を止められない');
+        // 止め終わるまで時間のかかるサーバー。失敗を見てすぐに例外にすると、止め終わる前に戻る。
+        await sleep(50);
+        stopped.push(server.name);
+      },
+    );
+    for (const name of ['a', 'b', 'c']) await pool.get(name);
+    await expect(pool.stopAll()).rejects.toThrow('a を止められない');
+    expect(stopped.sort()).toEqual(['b', 'c']);
+    expect(pool.has('a')).toBe(false);
+  });
+
+  it('起動に失敗したサーバーは止めにかからず、stopAll は例外にしない', async () => {
+    const stopped: string[] = [];
+    const pool = new ServerPool(
+      async () => {
+        throw new Error('起動に失敗');
+      },
+      async (server) => {
+        stopped.push(server.name);
+      },
+    );
+    await expect(pool.get('a')).rejects.toThrow('起動に失敗');
+    await expect(pool.stopAll()).resolves.toBeUndefined();
+    expect(stopped).toEqual([]);
+  });
+});
+
+async function isPortFree(target: number): Promise<boolean> {
+  try {
+    await assertPortFree(target);
+    return true;
+  } catch {
+    return false;
+  }
+}

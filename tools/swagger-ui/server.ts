@@ -48,12 +48,32 @@ function send(res: ServerResponse, status: number, contentType: string, body: st
   res.end(body);
 }
 
+/**
+ * ファイルを読んで返す。読めなければ 500 と理由を返す。仕様のファイルは、tag を切り替えたときや名前を変えたときに無くなりうる。
+ * readFileSync の例外を捕まえないと、この関数の外で処理されないまま、サーバーのプロセスが止まる。
+ */
+function sendFile(res: ServerResponse, file: string, contentType: string): void {
+  let body: Buffer;
+  try {
+    body = readFileSync(file);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? String(error);
+    send(res, 500, 'text/plain; charset=utf-8', `配るファイルを読めません (${code})\n`);
+    return;
+  }
+  send(res, 200, contentType, body);
+}
+
 createServer((req, res) => {
+  // http.Server が渡すリクエストには、url が必ずある (型が省略可なのは、クライアントが受ける応答と型を共用するため)。
+  const target = req.url!;
   /*
-   * リクエストの対象は / で始まるパスとは限らず、*:99999 のように URL として読めないものも届く。
-   * new URL は読めないと例外を投げ、この関数の外で処理されないまま、サーバーのプロセスが止まる。
+   * リクエストの対象は、/ で始まるパス (origin-form) のほかに、http://… の絶対形式 (absolute-form) でも届き、
+   * サーバーは絶対形式も受け付ける (RFC 9112 の 3.2.2)。パスは localhost を前に付けて、ほかは URL として読む。
+   * *:99999 のように URL として読めないものも届く。new URL は読めないと例外を投げ、この関数の外で
+   * 処理されないまま、サーバーのプロセスが止まるので、読めなければ null を返す URL.parse を使う。
    */
-  const url = URL.parse(`http://localhost${req.url}`);
+  const url = target.startsWith('/') ? URL.parse(`http://localhost${target}`) : URL.parse(target);
   if (url === null) return send(res, 400, 'text/plain; charset=utf-8', 'リクエストの対象を URL として読めません\n');
   const path = url.pathname;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -61,12 +81,12 @@ createServer((req, res) => {
     res.end();
     return;
   }
-  if (path === '/openapi.yaml') return send(res, 200, 'application/yaml', readFileSync(spec));
+  if (path === '/openapi.yaml') return sendFile(res, spec, 'application/yaml');
   if (path === '/swagger-initializer.js') return send(res, 200, 'text/javascript; charset=utf-8', initializer);
   const name = path === '/' ? '/index.html' : path;
   const contentType = assets[name];
   if (contentType === undefined) return send(res, 404, 'text/plain; charset=utf-8', `${path} は見つかりません\n`);
-  send(res, 200, contentType, readFileSync(join(dist, name)));
+  sendFile(res, join(dist, name), contentType);
 }).listen(port, () => {
   console.log(`Swagger UI を http://localhost:${port} で起動しました`);
 });

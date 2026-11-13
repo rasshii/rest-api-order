@@ -147,13 +147,15 @@ it('表現の決まりのキーの表と、リクエストと表現のスキー�
 
 /** 例のファイルのディレクトリ。仕様の名前付きの例は、このどちらかの同じ名前のファイルと同じ値にする。 */
 const exampleDirs = ['examples/orders', 'examples/problems'];
-const exampleFiles = new Map(
-  exampleDirs.flatMap((dir) =>
-    readdirSync(fileURLToPath(new URL(`../${dir}/`, import.meta.url)))
-      .filter((name) => name.endsWith('.json'))
-      .map((name) => [name.replace(/\.json$/, ''), `${dir}/${name}`] as const),
-  ),
+const exampleFileList = exampleDirs.flatMap((dir) =>
+  readdirSync(fileURLToPath(new URL(`../${dir}/`, import.meta.url)))
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => [name.replace(/\.json$/, ''), `${dir}/${name}`] as const),
 );
+const exampleFiles = new Map(exampleFileList);
+
+const failureHeader = '| 操作 | 失敗 | ユースケース | 問題の型 | ステータスコード |';
+const failurePattern = /^\| ([^|]+) \| [^|]+ \| [^|]+ \| `([^`]+)` \| (\d{3}) \|$/;
 
 /*
  * どの操作にも書けない失敗 (エンドポイントの一覧に無いパスの 404 と、受け付けないメソッドの 405) の例のファイル。
@@ -161,13 +163,7 @@ const exampleFiles = new Map(
  */
 function outsideOperationExamples(problems: string[]): string[] {
   const text = read('docs/api-design/problems.md');
-  const failures = rows(
-    text,
-    '| 操作 | 失敗 | ユースケース | 問題の型 | ステータスコード |',
-    /^\| ([^|]+) \| [^|]+ \| [^|]+ \| `([^`]+)` \| (\d{3}) \|$/,
-    (m) => ({ operation: m[1].trim(), type: m[2], status: m[3] }),
-    problems,
-  );
+  const failures = rows(text, failureHeader, failurePattern, (m) => ({ operation: m[1].trim(), type: m[2], status: m[3] }), problems);
   const types = rows(
     text,
     '| 型 | ステータスコード | 題 | 使う場面 | 拡張メンバー | 例 |',
@@ -183,6 +179,9 @@ function outsideOperationExamples(problems: string[]): string[] {
 it('仕様の名前付きの例が、同じ名前の例のファイルと同じ値で、操作の外の失敗を除くファイルがどれも仕様にある', () => {
   const problems: string[] = [];
   const outside = outsideOperationExamples(problems);
+  // 2 つのディレクトリに同じ名前のファイルがあると、Map では後のほうだけが残り、前のほうを照らさない。
+  const names = exampleFileList.map(([name]) => name);
+  for (const name of names.filter((name, index) => names.indexOf(name) !== index)) problems.push(`例のファイル ${name}.json が 2 つのディレクトリにある`);
   expect(problems).toEqual([]);
   expect(outside.length).toBeGreaterThan(0);
   for (const [name, example] of Object.entries(namedExamples)) {
@@ -194,8 +193,38 @@ it('仕様の名前付きの例が、同じ名前の例のファイルと同じ�
   expect(Object.keys(namedExamples).sort()).toEqual(expected);
 });
 
-/** 操作の requestBody と応答 (部品の応答の参照もたどる) の Media Type Object を、置き場の名前とともに返す。 */
-function mediaTypes(): { where: string; media: unknown }[] {
+/**
+ * 失敗の一覧の操作の列は、対応表のユースケースの名前か、「両方」(すべての操作) か「操作の外」(どの操作にも書けない)。
+ * 対応表のユースケースで仕様の操作を引き、その操作の 4xx と 5xx の応答のキーを、一覧のステータスコードの組と比べる。
+ */
+it('失敗の一覧の操作とステータスコードの組が、仕様のその操作の 4xx と 5xx の応答と一致する', () => {
+  const problems: string[] = [];
+  const failures = rows(read('docs/api-design/problems.md'), failureHeader, failurePattern, (m) => ({ operation: m[1].trim(), status: m[3] }), problems);
+  const table: unknown = parse(read('docs/api-design/operations.yaml'));
+  const tableRows = isRecord(table) && Array.isArray(table.operations) ? table.operations.filter(isRecord) : [];
+  const paths = isRecord(spec) && isRecord(spec.paths) ? spec.paths : {};
+  for (const row of tableRows) {
+    const useCase = String(row.useCase);
+    const item = paths[String(row.path)];
+    const operation = isRecord(item) ? item[String(row.method).toLowerCase()] : undefined;
+    const inSpec = entries(isRecord(operation) ? operation.responses : undefined)
+      .map(([code]) => code)
+      .filter((code) => /^[45]/.test(code))
+      .sort();
+    const listed = [...new Set(failures.filter((failure) => failure.operation === useCase || failure.operation === '両方').map((failure) => failure.status))].sort();
+    if (inSpec.join() !== listed.join()) problems.push(`${useCase}: 仕様の応答は ${inSpec.join('・')}、失敗の一覧は ${listed.join('・')}`);
+  }
+  const known = [...tableRows.map((row) => String(row.useCase)), '両方', '操作の外'];
+  for (const failure of failures.filter((failure) => !known.includes(failure.operation))) problems.push(`失敗の一覧の操作 ${failure.operation} が、対応表のユースケースにも、両方・操作の外にも無い`);
+  expect(problems).toEqual([]);
+  expect(tableRows.length).toBeGreaterThan(0);
+});
+
+/**
+ * 操作の requestBody と応答 (部品の応答の参照もたどる) の Media Type Object を、置き場の名前とともに返す。
+ * components/responses に無い名前を指す応答の参照は、その応答の例を照らさずに抜けないよう、problems に足す。
+ */
+function mediaTypes(problems: string[]): { where: string; media: unknown }[] {
   const responses = isRecord(components.responses) ? components.responses : {};
   const found: { where: string; media: unknown }[] = [];
   const paths = isRecord(spec) ? spec.paths : undefined;
@@ -209,6 +238,7 @@ function mediaTypes(): { where: string; media: unknown }[] {
       for (const [code, response] of entries(isRecord(operation) ? operation.responses : undefined)) {
         const name = refName(response, 'responses');
         const resolved = name === undefined ? response : responses[name];
+        if (name !== undefined && !isRecord(resolved)) problems.push(`${where} の ${code} が、components/responses に無い ${name} を指す`);
         for (const [type, media] of entries(isRecord(resolved) ? resolved.content : undefined)) {
           found.push({ where: `${where} の ${code} の ${type}`, media });
         }
@@ -222,7 +252,7 @@ it('仕様の名前付きの例が、置かれた場所のスキーマに合い�
   const validator = schemaValidator(spec);
   const problems: string[] = [];
   const used = new Set<string>();
-  for (const { where, media } of mediaTypes()) {
+  for (const { where, media } of mediaTypes(problems)) {
     const schema = refName(isRecord(media) ? media.schema : undefined, 'schemas');
     if (schema === undefined) {
       problems.push(`${where} の schema が components/schemas の部品の参照でない`);
@@ -237,6 +267,7 @@ it('仕様の名前付きの例が、置かれた場所のスキーマに合い�
         continue;
       }
       used.add(name);
+      if (key !== name) problems.push(`${where} の例のキー ${key} が、参照先の名前 ${name} と違う`);
       if (!validate(value.value)) {
         problems.push(`${where} の例 ${name} が ${schema} に合わない: ${JSON.stringify(validate.errors)}`);
       }

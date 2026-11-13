@@ -146,8 +146,63 @@ export async function startServer(
     }
     await sleep(100);
   }
-  assertAlive(server);
+  /*
+   * 起動の条件が成り立った直後に、起動のコマンドが終わっていることがある (空きを確かめてから待ち受けるまでの間に別の実行が
+   * ポートを取ったときや、コマンドがサーバーを後ろで起こして先に終わったとき)。返さない server は呼び出し側が止めないので、
+   * 孫のプロセスが残らないよう、ここでプロセスグループを止めてから例外にする。
+   */
+  if (server.exited) {
+    if (child.pid !== undefined) signalGroup(child.pid, 'SIGKILL');
+    throw new Error(`サーバー ${name} が起動の直後に終わった:\n${server.output}`);
+  }
   return server;
+}
+
+/**
+ * 起動したサーバーを名前で持ち、同じ名前のサーバーを 2 つ起動しないようにする。
+ * 起動の途中の Promise を持つのは、例が時間切れで終わっても起動は続くので、次の例が同じサーバーをもう 1 つ起動しないようにするため。
+ * 起動と停止の関数を受け取るのは、起動の重なりと停止の失敗を、本物のサーバーなしに harness.test.ts で確かめるため。
+ */
+export class ServerPool {
+  readonly #starting = new Map<string, Promise<RunningServer>>();
+  readonly #start: (name: string) => Promise<RunningServer>;
+  readonly #stop: (server: RunningServer) => Promise<void>;
+
+  constructor(start: (name: string) => Promise<RunningServer>, stop: (server: RunningServer) => Promise<void> = stopServer) {
+    this.#start = start;
+    this.#stop = stop;
+  }
+
+  has(name: string): boolean {
+    return this.#starting.has(name);
+  }
+
+  /** name のサーバーを返す。まだ起動していなければ、起動を始める。 */
+  get(name: string): Promise<RunningServer> {
+    let starting = this.#starting.get(name);
+    if (starting === undefined) {
+      starting = this.#start(name);
+      this.#starting.set(name, starting);
+    }
+    return starting;
+  }
+
+  /**
+   * 持っているサーバーを、すべて同時に止めにかかる。1 つを止めるのに失敗しても、残りは止めてから失敗にする。
+   * 起動に失敗したサーバーは、startServer がプロセスグループを止めていて、その失敗は起動を待った例が報告している。
+   */
+  async stopAll(): Promise<void> {
+    const all = [...this.#starting.values()];
+    this.#starting.clear();
+    const results = await Promise.allSettled(
+      all.map(async (starting) => {
+        const server = await starting.catch(() => undefined);
+        if (server !== undefined) await this.#stop(server);
+      }),
+    );
+    const errors = results.flatMap((result) => (result.status === 'rejected' ? [String(result.reason)] : []));
+    if (errors.length > 0) throw new Error(`サーバーを止められなかった:\n${errors.join('\n')}`);
+  }
 }
 
 async function isReady(server: RunningServer): Promise<boolean> {

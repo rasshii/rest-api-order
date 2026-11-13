@@ -68,6 +68,8 @@ npm run docs:swagger
 
 テストは、記事と同じポートでサーバーを起動します。同じポートで別のサーバーが動いていると、テストは失敗にして止まります。
 
+依存のパッケージ (swagger-ui-dist など) には、`npm ci` のときに利用の統計を scarf.sh へ送る `@scarf/scarf` が入っています。`package.json` の `scarfSettings` で、送らない設定にしています。
+
 ## ライセンス
 
 [MIT](LICENSE)
