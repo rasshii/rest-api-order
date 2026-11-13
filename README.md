@@ -2,7 +2,7 @@
 
 [REST API 設計・実装ガイド](https://notes.rewheel.dev/docs/rest-api/) のサンプルリポジトリです。EC サイトの注文 API を、要件・ドメインモデル・OpenAPI の仕様・モックの順に作り、ガイドの第 2 部から TypeScript で実装します。
 
-このリポジトリには、章ごとに tag を付けています。tag `rest-NN` は、第 NN 章まで読んだ時点のリポジトリです。
+このリポジトリには、章ごとに tag を付けています。tag `rest-NN` は、第 NN 章まで読んだ時点のリポジトリです。公開の後に直した章には、`rest-NN-r2` を付けます (もう一度直したら `rest-NN-r3`、以後も番号を 1 つずつ増やします)。同じ章に r の付いた tag があるときは、番号のいちばん大きい tag が、その章の今の状態です。
 
 ## 構成
 
@@ -17,6 +17,22 @@
 
 - Node.js 26 (`.nvmrc` に書いてあります)
 - curl
+- bash と find (テストが使います)。macOS と Linux のシェルで動かします。Windows では WSL の中で動かしてください
+
+## 取り出し方
+
+```bash
+git clone https://github.com/rasshii/rest-api-order.git
+cd rest-api-order
+
+# 章の tag の一覧
+git tag --list 'rest-*'
+
+# 読み終えた章の tag に切り替える (この例は第 2 章。r の付いた tag があれば、番号のいちばん大きいもの)
+git switch --detach rest-02-r2
+```
+
+`--detach` は、branch ではなく tag の指す commit をそのまま取り出す指定です。そこから手を加えるときは、`git switch -c <branch の名前>` で branch を作ってください。
 
 ## 動かし方
 

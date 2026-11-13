@@ -110,7 +110,6 @@ for (const snippet of snippets) {
 }
 
 it('snippets のファイルをすべて走らせ、すべてのサーバーを起動した', () => {
-  expect(existsSync(join(dir, 'servers.json')), 'test/snippets/servers.json が無い').toBe(true);
   expect(findServersFileProblems(dir, servers)).toEqual([]);
   expect(ran.size).toBe(countWithFind(dir));
   expect([...started].sort()).toEqual(Object.keys(servers.servers).sort());

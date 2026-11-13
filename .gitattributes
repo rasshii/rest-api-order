@@ -1,2 +1,3 @@
-# 記事の curl・コマンドと、その結果の期待値。Windows の checkout でも LF にそろえ、記事のフェンスと改行だけの差を出さない。
-test/snippets/* text eol=lf
+# テキストのファイルを、どの checkout でも LF にそろえる。Windows の checkout でも、記事のフェンスとの突き合わせと、
+# テストが読むファイル (期待値・文書・試しのファイル) に、改行だけの差を出さない。
+* text=auto eol=lf
