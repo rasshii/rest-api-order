@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { isRecord } from './support/openapi.ts';
 
 interface Term {
   name: string;
@@ -23,10 +24,6 @@ interface Glossary {
 
 const docs = fileURLToPath(new URL('../docs/', import.meta.url));
 const raw: unknown = parse(readFileSync(join(docs, 'glossary.yaml'), 'utf8'));
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value !== '';

@@ -6,7 +6,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { entries, isRecord, loadSpec, mediaTypes, methods, refName, schemaValidator } from './support/openapi.ts';
+import { rows } from './support/markdown.ts';
+import { componentsValidator, entries, isRecord, loadSpec, mediaTypes, methods, refName } from './support/openapi.ts';
 
 function read(path: string): string {
   return readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
@@ -49,28 +50,6 @@ function operationsOf(problems: string[]): string[] {
   return operations;
 }
 
-/** 表の本体の行 (見出しと区切りの行の次から、空行の前まで)。形の合わない行を数えられるよう、正規表現で拾う前の行を返す。 */
-function tableLines(text: string, header: string): string[] {
-  const lines = text.split(/\r?\n/);
-  const start = lines.indexOf(header);
-  if (start < 0) return [];
-  const end = lines.findIndex((line, index) => index > start && line.trim() === '');
-  return lines.slice(start + 2, end < 0 ? undefined : end);
-}
-
-/** 行を pattern で拾い、拾えない行は problems に足す。拾えない行が黙って抜けないよう、形の確かめと一緒に行う。 */
-function rows<T>(text: string, header: string, pattern: RegExp, toRow: (match: RegExpExecArray) => T, problems: string[]): T[] {
-  const lines = tableLines(text, header);
-  if (lines.length === 0) problems.push(`表 ${header} が無いか、行が無い`);
-  return lines.flatMap((line) => {
-    const match = pattern.exec(line);
-    if (match === null) {
-      problems.push(`表の行を拾えない: ${line}`);
-      return [];
-    }
-    return [toRow(match)];
-  });
-}
 
 it('仕様の操作が、対応表の操作と、メソッド・パス・操作の名前の組で一致する', () => {
   const problems: string[] = [];
@@ -201,7 +180,7 @@ it('失敗の一覧の操作とステータスコードの組が、仕様のそ�
 });
 
 it('仕様の名前付きの例が、置かれた場所のスキーマに合い、どれもどこかに置かれている', () => {
-  const validator = schemaValidator(spec);
+  const validator = componentsValidator(spec).byName;
   const problems: string[] = [];
   const used = new Set<string>();
   for (const { where, media } of mediaTypes(spec, problems)) {
@@ -237,7 +216,7 @@ it('仕様の名前付きの例が、置かれた場所のスキーマに合い�
  * クライアントは知らないキーを無視する。仕様のスキーマがこの 2 つを写していることを、例に知らないキーを足して確かめる。
  */
 it('リクエストのスキーマは知らないキーを断り、表現のスキーマは知らないキーを通す', () => {
-  const validator = schemaValidator(spec);
+  const validator = componentsValidator(spec).byName;
   const request = JSON.parse(read('examples/orders/place-order-request.json')) as { lines: Record<string, unknown>[] };
   const order = JSON.parse(read('examples/orders/order.json')) as { lines: Record<string, unknown>[] };
   const withTopKey = <T extends object>(value: T) => ({ ...value, unknownKey: 1 });

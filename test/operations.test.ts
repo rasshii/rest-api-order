@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { isRecord } from './support/openapi.ts';
 
 interface Operation {
   useCase: string;
@@ -31,10 +32,6 @@ const glossary: unknown = parse(read('docs/glossary.yaml'));
 const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const writeKeys = 'aggregateMethod,command,method,operationId,path,useCase';
 const readKeys = 'method,operationId,path,readModel,useCase';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value !== '';

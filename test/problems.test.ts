@@ -7,6 +7,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { rows } from './support/markdown.ts';
+import { isRecord } from './support/openapi.ts';
 
 interface TypeRow {
   type: string;
@@ -30,10 +32,6 @@ interface FailureRow {
 
 function read(path: string): string {
   return readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isText(value: unknown): value is string {
@@ -80,26 +78,6 @@ const memberChecks: Record<string, (value: unknown) => boolean> = {
   trackingId: isText,
 };
 
-/** header の行の表の本体 (見出しと区切りの行の次から、空行の前まで)。形の合わない行を数えられるよう、正規表現で拾う前の行を返す。 */
-function tableLines(header: string): string[] {
-  const lines = problemsDoc.split(/\r?\n/);
-  const start = lines.indexOf(header);
-  if (start < 0) return [];
-  const end = lines.indexOf('', start);
-  return lines.slice(start + 2, end < 0 ? undefined : end);
-}
-
-/** 行を pattern で拾い、拾えない行は problems に足す。拾えない行が黙って抜けないよう、形の確かめと一緒に行う。 */
-function rows<T>(header: string, pattern: RegExp, toRow: (match: RegExpExecArray) => T, problems: string[]): T[] {
-  const lines = tableLines(header);
-  if (lines.length === 0) problems.push(`表 ${header} が無いか、行が無い`);
-  return lines.flatMap((line) => {
-    const match = pattern.exec(line);
-    if (match === null) problems.push(`形の合わない行: ${line}`);
-    return match === null ? [] : [toRow(match)];
-  });
-}
-
 const typeHeader = '| 型 | ステータスコード | 題 | 使う場面 | 拡張メンバー | 例 |';
 const typePattern = /^\| `([^`]+)` \| (\d{3}) \| `([^`]+)` \| [^|]+ \| (なし|`[a-zA-Z]+`(?:・`[a-zA-Z]+`)*) \| `([a-z-]+\.json)` \|$/;
 const memberHeader = '| メンバー | 語 | 型 | 中身 |';
@@ -112,13 +90,14 @@ const typeShape: string[] = [];
 const memberShape: string[] = [];
 const failureShape: string[] = [];
 const typeRows = rows<TypeRow>(
+  problemsDoc,
   typeHeader,
   typePattern,
   (m) => ({ type: m[1], status: Number(m[2]), title: m[3], members: m[4] === 'なし' ? [] : m[4].replaceAll('`', '').split('・'), example: m[5] }),
   typeShape,
 );
-const memberRows = rows<MemberRow>(memberHeader, memberPattern, (m) => ({ member: m[1], term: m[2], type: m[3] }), memberShape);
-const failureRows = rows<FailureRow>(failureHeader, failurePattern, (m) => ({ useCase: m[1], type: m[2], status: Number(m[3]) }), failureShape);
+const memberRows = rows<MemberRow>(problemsDoc, memberHeader, memberPattern, (m) => ({ member: m[1], term: m[2], type: m[3] }), memberShape);
+const failureRows = rows<FailureRow>(problemsDoc, failureHeader, failurePattern, (m) => ({ useCase: m[1], type: m[2], status: Number(m[3]) }), failureShape);
 
 /**
  * use-cases.md の別の流れを、「注文する 2a」のようにユースケースの名前と手順の番号で返す。

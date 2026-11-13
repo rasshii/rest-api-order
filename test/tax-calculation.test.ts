@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
+import { isRecord } from './support/openapi.ts';
 
 interface Line {
   productId: string;
@@ -30,10 +31,6 @@ interface Example {
 const raw: unknown = JSON.parse(
   readFileSync(fileURLToPath(new URL('../examples/domain/tax-calculation.json', import.meta.url)), 'utf8'),
 );
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /** 綴りを誤ったキーを見つけるため、keys のキーが欠けているときだけでなく、keys に無いキーがあるときも false にする。 */
 function hasExactly(value: unknown, keys: string[]): value is Record<string, unknown> {

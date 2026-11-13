@@ -18,7 +18,7 @@ export interface CurlResponse {
   body: string;
 }
 
-/** curl のコマンドから、送るメソッドと送り先の URL のパスを読む。語の分け方と URL の見分け方は snippets.ts と同じ。 */
+/** curl のコマンドから、送るメソッドと送り先の URL のパスを読む。 */
 export function parseCurlRequest(command: string): CurlRequest {
   const args = curlWords(command);
   if (args[0] !== 'curl') throw new Error(`curl のコマンドでない: ${command}`);
@@ -67,7 +67,7 @@ function matchesTemplate(template: string, path: string): boolean {
  * 応答のキーは、ステータスコードそのものか範囲 (4XX など) を探す。default は探さない
  * (default に当たると、仕様に無いステータスコードの応答が通ってしまうため)。
  */
-export function findResponseSchema(spec: unknown, request: CurlRequest, response: CurlResponse): { schema: unknown } | { problem: string } {
+function findResponseSchema(spec: unknown, request: CurlRequest, response: CurlResponse): { schema: unknown } | { problem: string } {
   const where = `${request.method} ${request.path}`;
   const paths = isRecord(spec) ? spec.paths : undefined;
   // 変数の少ないテンプレートを先にする (静的なパスを、同じ形の変数のパスより先に当てる)。
@@ -95,7 +95,7 @@ export function findResponseSchema(spec: unknown, request: CurlRequest, response
 
 /**
  * 仕様を受け取り、curl のコマンドとその出力を、仕様の応答のスキーマで確かめる関数を返す。
- * 返す関数は、食い違いを文の配列で返す (食い違いが無ければ空)。検証器は openapi.ts の componentsValidator を使う。
+ * 返す関数は、食い違いを文の配列で返す (食い違いが無ければ空)。
  */
 export function responseChecker(spec: unknown): (command: string, stdout: string) => string[] {
   const validator = componentsValidator(spec);

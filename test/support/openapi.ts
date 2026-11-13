@@ -120,8 +120,3 @@ export function componentsValidator(spec: unknown): { byName: (name: string) => 
     compile: (schema) => ajv.compile(rebase(schema) as object),
   };
 }
-
-/** 部品の名前で検証の関数を返す (componentsValidator の byName)。 */
-export function schemaValidator(spec: unknown): (name: string) => ValidateFunction {
-  return componentsValidator(spec).byName;
-}

@@ -144,7 +144,7 @@ export function lastLine(text: string): string {
   return lines.at(-1) ?? '';
 }
 
-/*
+/**
  * ポートが使われているかを、127.0.0.1・::1・host を省いた形 (全部のアドレス) の順に待ち受けて確かめる。
  * macOS では、127.0.0.1 だけで待ち受けるサーバー (Prism の既定) があっても、host を省いた待ち受けは成功するので、
  * host を省いた形だけでは、そのサーバーに気づかない。::1 を持たない機 (EADDRNOTAVAIL) と、IPv6 を使えない機 (EAFNOSUPPORT) では、
