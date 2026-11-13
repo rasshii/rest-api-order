@@ -4,6 +4,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { expect, it } from 'vitest';
 import { lintFixtures } from './support/lint.ts';
 
@@ -38,6 +39,24 @@ const testPattern = /^テスト: `([^`]+)` の「([^」]+)」$/;
 const cells = protectionCells(read('docs/api-design/guidelines.md'));
 const parts = cells.flatMap((cell) => cell.split(' / '));
 
+/**
+ * ファイルの中の it('<名前>', …) の呼び出しの名前。ファイルを文字として探すと、コメントや文字列の中の it でも
+ * 見つかるので、構文木で呼び出しだけを拾う。it.skip と it.todo は止めたテストで守っていないので、数えない。
+ */
+function itNames(path: string): string[] {
+  const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest);
+  const names: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'it') {
+      const [first] = node.arguments;
+      if (first !== undefined && (ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first))) names.push(first.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return names;
+}
+
 it('ガイドラインの守り方は、どれも lint・テスト・人が見るの形で書かれている', () => {
   expect(cells.length).toBeGreaterThan(0);
   expect(parts.filter((part) => !lintPattern.test(part) && !testPattern.test(part) && part !== '人が見る')).toEqual([]);
@@ -58,7 +77,7 @@ it('ガイドラインのテストは、そのファイルに同じ名前の it 
   expect(tests.length).toBeGreaterThan(0);
   const missing = tests.filter(({ file, name }) => {
     const path = fileURLToPath(new URL(`../${file}`, import.meta.url));
-    return !existsSync(path) || !readFileSync(path, 'utf8').includes(`it('${name}'`);
+    return !existsSync(path) || !itNames(path).includes(name);
   });
   expect(missing).toEqual([]);
 });

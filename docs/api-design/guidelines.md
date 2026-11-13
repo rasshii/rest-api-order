@@ -37,11 +37,11 @@
 | --- | --- | --- |
 | パスのセグメントは小文字の英語にし、2 語以上なら `-` でつなぐ | `endpoints.md` の名前の決まり | 人が見る |
 | コレクションは複数形にする | `endpoints.md` の名前の決まり | 人が見る |
-| パスの変数の名前は、用語集の code にする | `endpoints.md` の名前の決まり | テスト: `test/operations.test.ts` の「パスの変数の名前が、用語集の code にある」 |
+| パスの変数の名前は、用語集の code にする | `endpoints.md` の名前の決まり | テスト: `test/operations.test.ts` の「パスの変数の名前が、用語集の code にある」 / テスト: `test/openapi.test.ts` の「仕様の操作が、対応表の操作と、メソッド・パス・操作の名前の組で一致する」 |
 | 標準のメソッド (AIP-121 の取得・一覧・作成・更新・削除) で表せる操作では、パスに動詞を入れない | `endpoints.md` の名前の決まり | 人が見る |
 | 基底のパスを付けず、1 周目は API の版をパスに入れない | `endpoints.md` の名前の決まり | 人が見る |
 | 操作の名前 (operationId) は camelCase にし、対応表 (`operations.yaml`) と同じにする | `operations.yaml` | lint: `rule/operation-id-camel-case` / テスト: `test/openapi.test.ts` の「仕様の操作が、対応表の操作と、メソッド・パス・操作の名前の組で一致する」 |
-| リソースを作る操作の 201 は、`Location` で作ったリソースの URL を返す | `endpoints.md` の一覧 | lint: `rule/created-has-location` |
+| リソースを作る操作の 201 は、`Location` で作ったリソースの URL を返す | `endpoints.md` の一覧 | lint: `rule/created-has-location` / テスト: `test/openapi.test.ts` の「Location とパスの変数の例が、注文の例の注文 ID を指す」 |
 
 - パスの形を lint (組み込みの `paths-kebab-case`) で守らないのは、`/orders/{orderId}:cancel` のようなカスタムメソッドの形も落とすため。標準のメソッドで表せない操作の形は、後の周回で比べて決める
 - `rule/created-has-location` は、ヘッダの名前を `Location` の綴りどおりに探す。HTTP のヘッダの名前は大文字と小文字を区別しないが、仕様には `Location` と書く (`location` と書くと lint が落とす)
@@ -69,9 +69,10 @@
 | 規約 | 決めた文書 | 守り方 |
 | --- | --- | --- |
 | 誤りの応答 (4xx も 5xx も) は、本文に `application/problem+json` の問題の詳細を返す | `problems.md` | lint: `rule/error-responses-have-content` / lint: `rule/error-responses-problem-json` / 人が見る |
+| 応答の範囲のキーは、大文字の X で書く (`4XX`) | この文書 | lint: `rule/response-range-key-uppercase` |
 | 失敗ごとのステータスコードと問題の型は、失敗の一覧と問題の型の表に従う | `problems.md` の失敗の一覧・問題の型 | テスト: `test/problems.test.ts` の「失敗の一覧の行とユースケースの別の流れの行はどれも決めた形で書かれ、別の流れは use-cases.md に 1 回ずつで、どれも失敗の一覧にちょうど 1 回あり、一覧の型とステータスコードの組は問題の型の表にあり、表の型はどれも一覧で使う」 / テスト: `test/openapi.test.ts` の「失敗の一覧の操作とステータスコードの組が、仕様のその操作の 4xx と 5xx の応答と一致する」 / 人が見る |
-| 問題の型の表と例は 1 対 1 にし、例は表の題と拡張メンバーに合わせる | `problems.md` の問題の型 | テスト: `test/problems.test.ts` の「問題の型の表の行はどれも決めた形で書かれ、例のファイルと 1 対 1 で、自前の型は /problems/ と kebab-case の相対 URI で重ならず、about:blank の題はステータスコードの名前」 / テスト: `test/problems.test.ts` の「例の type・title・status は表の行と同じで、detail は空でない文字列で、例は行の拡張メンバーをすべて持ち、ほかには RFC 9457 の type・title・status・detail だけを持ち、null が無い」 |
+| 問題の型の表と例は 1 対 1 にし、例は表の題と拡張メンバーに合わせる | `problems.md` の問題の型 | テスト: `test/problems.test.ts` の「問題の型の表の行はどれも決めた形で書かれ、例のファイルと 1 対 1 で、自前の型は /problems/ と kebab-case の相対 URI で重ならず、about:blank の題はステータスコードの名前」 / テスト: `test/problems.test.ts` の「例の type・title・status は表の行と同じで、detail は空でない文字列で、例は行の拡張メンバーをすべて持ち、ほかには RFC 9457 の type・title・status・detail だけを持ち、null が無い」 / テスト: `test/openapi.test.ts` の「仕様の名前付きの例が、同じ名前の例のファイルと同じ値で、操作の外の失敗を除くファイルがどれも仕様にある」 |
 
-- 誤りの応答の 2 つの規則は、ステータスコードのキー (`404`) と範囲のキー (`4XX`・`5XX`) の応答に当たり、`components/responses` に置いて `$ref` で指した応答にも当たる。`default` の応答は成功の応答も兼ねうるので当てない。`default` を使うときは人が見る
-- 2 つの規則が見るのは、本文があることとメディアタイプのキーまでで、本文のスキーマが問題の詳細の形か (`Problem.yaml` を `allOf` に持つか) は見ない。スキーマの形は人が見る
+- 誤りの応答の 2 つの規則は、ステータスコードのキー (`404`) と範囲のキー (`4XX`・`5XX`) の応答に当たり、`components/responses` に置いて `$ref` で指した応答にも当たる。`default` の応答は成功の応答も兼ねうるので当てない。`default` を使うときは人が見る。小文字の範囲のキー (`4xx`) は OpenAPI 3.1.2 で認められず、2 つの規則にも当たらないので、`rule/response-range-key-uppercase` で落とす
+- 2 つの規則が見るのは、本文があることとメディアタイプのキーまでで、本文のスキーマが問題の詳細の形か (`Problem.yaml` を `allOf` に持つか。`oneOf` のスキーマなら、どの枝の型も持つか) は見ない。スキーマの形は人が見る
 - 失敗の一覧の行のテストのうち、`test/problems.test.ts` は `problems.md` の表どうしとユースケースの別の流れを比べ、`test/openapi.test.ts` は操作ごとのステータスコードの組を仕様の応答のキーと比べる。応答の本文がどの問題の型のスキーマかは人が見る

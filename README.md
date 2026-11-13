@@ -32,7 +32,7 @@
 | `test/guidelines.test.ts` | ガイドラインの守り方の列が、lint の落ちる例と、実在するテストを指すことを確かめるテスト |
 | `test/snippets/` | 記事に載せた curl とコマンドと、その結果の期待値 |
 | `test/snippets.test.ts` | `test/snippets/` の curl とコマンドを実行し、出力を期待値と比べるテスト |
-| `test/support/` | 上のテストが使う処理 (記事の例の実行と比較、仕様の読み込みとスキーマでの検証) |
+| `test/support/` | 上のテストが使う処理 (記事の例の実行と比較、仕様の読み込みとスキーマでの検証、Redocly CLI の呼び出しと lint の落ちる例の回し方) |
 | `test/harness.test.ts` | 実行と比較の処理のテスト (`test/fixtures/` の試しのファイルを使う) |
 | `test/tools.test.ts` | `tools/` のサーバーが、本文を受け取る途中で切れたリクエストの後も応答することと、商品のサーバーが受け付けるリクエストの対象と `Content-Type` の形を確かめるテスト |
 

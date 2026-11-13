@@ -47,6 +47,15 @@ rules:
         - application/problem+json
     message: 誤りの応答の本文は application/problem+json の問題の詳細にする ({{problems}})
 
+  # 範囲のキーは大文字の X で書く (OpenAPI 3.1.2 の Responses Object)。小文字の 4xx は構造の検査を通り、
+  # 上の 2 つの規則の範囲のキーにも当たらないので、誤りの応答の規則の外に抜ける。
+  rule/response-range-key-uppercase:
+    subject:
+      type: Responses
+    assertions:
+      notPattern: /^[1-5](xx|xX|Xx)$/
+    message: 範囲のキーは大文字の X で書く ({{problems}})
+
   # headers の値を schema で確かめる。HeadersMap を subject にすると、headers の無い応答を訪ねず落とせない。
   rule/created-has-location:
     subject:

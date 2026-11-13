@@ -143,6 +143,8 @@ describe('コマンドの実行', () => {
   it('GitHub Actions の環境変数があっても、Redocly CLI の出力に色の符号が付かない', () => {
     vi.stubEnv('CI', 'true');
     vi.stubEnv('GITHUB_ACTIONS', 'true');
+    // 手元に NO_COLOR があると、runCommand が NO_COLOR を渡さなくても色が付かず、確かめにならないので外す。
+    vi.stubEnv('NO_COLOR', undefined);
     try {
       const { output, status } = runCommand('npx redocly lint test/fixtures/lint/valid.yaml', root);
       expect(status).toBe(0);

@@ -1,4 +1,4 @@
-description: 本文が JSON として読めないか、形や値が表現の決まりと、注文するの手順 2 の確かめに合わない。
+description: 本文が JSON として読めないか、注文するのリクエストのスキーマに合わないか、同じ商品の注文明細が 2 つ以上ある。
 allOf:
   - $ref: ./Problem.yaml
   - type: object
@@ -13,8 +13,9 @@ allOf:
         const: 400
       errors:
         type: array
-        description: 本文の誤りを 1 つずつ。見つけたものをすべて並べる。
+        description: 本文の誤り。最初に見つけた 1 つだけを入れる。
         minItems: 1
+        maxItems: 1
         items:
           type: object
           required:
@@ -23,9 +24,12 @@ allOf:
           properties:
             pointer:
               type: string
+              pattern: '^(/([^/~]|~[01])*)*$'
               description: >-
                 誤りの位置。JSON Pointer (RFC 6901) で、先頭に `#` を付けない。本文が JSON
-                として読めないときは、本文全体を指す空の文字列。
+                として読めないときは、本文全体を指す空の文字列。同じ商品の注文明細が 2 つ以上あるときは、前から読んで、前の注文明細と商品が重なった最初の注文明細の
+                `productId`。
             detail:
               type: string
+              minLength: 1
               description: 誤りの説明。

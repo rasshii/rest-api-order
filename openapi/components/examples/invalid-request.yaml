@@ -1,11 +1,9 @@
-summary: 連絡先メールアドレスの形と、数量が誤っている
+summary: 注文明細の数量が 0
 value:
   type: /problems/invalid-request
   title: Invalid request
   status: 400
-  detail: The request body has 2 errors.
+  detail: The request body has an error.
   errors:
-    - pointer: /contactEmail
-      detail: Must be an email address.
     - pointer: /lines/0/quantity
       detail: Must be an integer of 1 or more.
