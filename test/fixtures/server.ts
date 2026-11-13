@@ -1,4 +1,7 @@
-// 実行と比較の処理のテスト (harness.test.ts) で起動するサーバー。/ua には受け取った User-Agent を、ほかには ok を返す。
+/*
+ * 実行と比較の処理のテスト (harness.test.ts) で起動するサーバー。
+ * /ua は、テストの curl が設定ファイルで決めた User-Agent を送っていることを確かめるために、受け取った値を返す。
+ */
 import { createServer } from 'node:http';
 
 const port = Number(process.argv[2]);
