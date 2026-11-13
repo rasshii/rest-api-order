@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 
 interface Line {
-  product: string;
+  productId: string;
   unitPrice: number;
   quantity: number;
   taxRate: number;
@@ -20,7 +20,7 @@ interface RateTotal {
 }
 
 interface Example {
-  name: string;
+  title: string;
   lines: Line[];
   total: number;
   taxByRate: RateTotal[];
@@ -54,8 +54,9 @@ function isTaxRate(value: unknown): boolean {
 
 function isLine(value: unknown): boolean {
   return (
-    hasExactly(value, ['product', 'unitPrice', 'quantity', 'taxRate']) &&
-    typeof value.product === 'string' &&
+    hasExactly(value, ['productId', 'unitPrice', 'quantity', 'taxRate']) &&
+    typeof value.productId === 'string' &&
+    value.productId !== '' &&
     isYen(value.unitPrice) &&
     isQuantity(value.quantity) &&
     isTaxRate(value.taxRate)
@@ -82,13 +83,13 @@ function shapeProblems(value: unknown): string[] {
   const problems: string[] = [];
   value.examples.forEach((example: unknown, index) => {
     const where = `examples の ${index + 1} 番目`;
-    if (!hasExactly(example, ['name', 'lines', 'total', 'taxByRate', 'taxAmount'])) {
-      problems.push(`${where}: キーが name・lines・total・taxByRate・taxAmount の 5 つでない`);
+    if (!hasExactly(example, ['title', 'lines', 'total', 'taxByRate', 'taxAmount'])) {
+      problems.push(`${where}: キーが title・lines・total・taxByRate・taxAmount の 5 つでない`);
       return;
     }
-    if (typeof example.name !== 'string' || example.name === '') problems.push(`${where}: name が無い`);
+    if (typeof example.title !== 'string' || example.title === '') problems.push(`${where}: title が無い`);
     if (!Array.isArray(example.lines) || example.lines.length === 0 || !example.lines.every(isLine)) {
-      problems.push(`${where}: lines が、商品・単価・数量 (1 以上)・税率 (8 か 10) を持つ注文明細の配列でない`);
+      problems.push(`${where}: lines が、商品 ID・単価・数量 (1 以上)・税率 (8 か 10) を持つ注文明細の配列でない`);
     }
     if (!Array.isArray(example.taxByRate) || !example.taxByRate.every(isRateTotal)) {
       problems.push(`${where}: taxByRate が、税率・合計・消費税額を持つ配列でない`);
@@ -105,7 +106,7 @@ function taxAmountOf(total: number, taxRate: number): number {
 }
 
 /** 注文明細から、合計・税率ごとの合計と消費税額・消費税額を求める。税率ごとの合計から 1 回だけ割り戻す。 */
-function calculate(lines: Line[]): Omit<Example, 'name' | 'lines'> {
+function calculate(lines: Line[]): Omit<Example, 'title' | 'lines'> {
   const totals = new Map<number, number>();
   for (const line of lines) {
     totals.set(line.taxRate, (totals.get(line.taxRate) ?? 0) + line.unitPrice * line.quantity);
@@ -128,7 +129,7 @@ it('計算例の形が崩れていない', () => {
 });
 
 for (const example of examples) {
-  it(`計算例「${example.name}」の合計と消費税額が、求め方と合う`, () => {
+  it(`計算例「${example.title}」の合計と消費税額が、求め方と合う`, () => {
     const { total, taxByRate, taxAmount } = example;
     expect({ total, taxByRate, taxAmount }).toEqual(calculate(example.lines));
   });

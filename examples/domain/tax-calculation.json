@@ -2,10 +2,10 @@
   "rounding": "floor",
   "examples": [
     {
-      "name": "税率ごとに注文明細が 1 つずつで、端数が出ない",
+      "title": "税率ごとに注文明細が 1 つずつで、端数が出ない",
       "lines": [
-        { "product": "りんご", "unitPrice": 1080, "quantity": 2, "taxRate": 8 },
-        { "product": "保存容器", "unitPrice": 1650, "quantity": 1, "taxRate": 10 }
+        { "productId": "01a0f4c2-c400-7a11-8b52-3c9d0e1f2a34", "unitPrice": 1080, "quantity": 2, "taxRate": 8 },
+        { "productId": "01a0f4c2-c7e8-7b22-a963-4dae1f203b45", "unitPrice": 1650, "quantity": 1, "taxRate": 10 }
       ],
       "total": 3810,
       "taxByRate": [
@@ -15,10 +15,10 @@
       "taxAmount": 310
     },
     {
-      "name": "同じ税率の注文明細が 2 つあり、端数が出る",
+      "title": "同じ税率の注文明細が 2 つあり、端数が出る",
       "lines": [
-        { "product": "パン", "unitPrice": 1050, "quantity": 1, "taxRate": 8 },
-        { "product": "ジャム", "unitPrice": 1050, "quantity": 1, "taxRate": 8 }
+        { "productId": "01a0f4c2-c9b4-7d44-9c85-6fc0314a5d67", "unitPrice": 1050, "quantity": 1, "taxRate": 8 },
+        { "productId": "01a0f4c2-cb20-7e55-ad96-70d1425b6e78", "unitPrice": 1050, "quantity": 1, "taxRate": 8 }
       ],
       "total": 2100,
       "taxByRate": [
@@ -27,10 +27,10 @@
       "taxAmount": 155
     },
     {
-      "name": "2 つの税率で端数が出て、端数の和が 1 円を超える",
+      "title": "2 つの税率で端数が出て、端数の和が 1 円を超える",
       "lines": [
-        { "product": "パン", "unitPrice": 1050, "quantity": 2, "taxRate": 8 },
-        { "product": "マグカップ", "unitPrice": 999, "quantity": 1, "taxRate": 10 }
+        { "productId": "01a0f4c2-c9b4-7d44-9c85-6fc0314a5d67", "unitPrice": 1050, "quantity": 2, "taxRate": 8 },
+        { "productId": "01a0f4c2-cd8c-7f66-bea7-81e2536c7f89", "unitPrice": 999, "quantity": 1, "taxRate": 10 }
       ],
       "total": 3099,
       "taxByRate": [
