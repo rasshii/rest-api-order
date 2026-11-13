@@ -200,12 +200,12 @@ it('注文の例は、リクエストの例と同じ注文を表し、金額は�
   expect(order.lines.map(({ productId, quantity }) => ({ productId, quantity }))).toStrictEqual(request.lines);
 
   const calculations = isRecord(taxCalculation) && Array.isArray(taxCalculation.examples) ? taxCalculation.examples.filter(isRecord) : [];
-  const calculation = calculations.find((example) => example.name === '税率ごとに注文明細が 1 つずつで、端数が出ない') as
-    | { lines: { unitPrice: number; quantity: number; taxRate: number }[]; total: number; taxAmount: number }
+  const calculation = calculations.find((example) => example.title === '税率ごとに注文明細が 1 つずつで、端数が出ない') as
+    | { lines: { productId: string; unitPrice: number; quantity: number; taxRate: number }[]; total: number; taxAmount: number }
     | undefined;
   expect(calculation).toBeDefined();
-  expect(order.lines.map(({ unitPrice, quantity, taxRate }) => ({ unitPrice, quantity, taxRate }))).toStrictEqual(
-    calculation?.lines.map(({ unitPrice, quantity, taxRate }) => ({ unitPrice, quantity, taxRate })),
+  expect(order.lines.map(({ productId, unitPrice, quantity, taxRate }) => ({ productId, unitPrice, quantity, taxRate }))).toStrictEqual(
+    calculation?.lines.map(({ productId, unitPrice, quantity, taxRate }) => ({ productId, unitPrice, quantity, taxRate })),
   );
   expect({ total: order.total, taxAmount: order.taxAmount }).toStrictEqual({ total: calculation?.total, taxAmount: calculation?.taxAmount });
 });
