@@ -69,6 +69,7 @@ describe('本文を受け取る途中で切れたリクエストの後も応答�
   it('商品のサーバー', async () => {
     await withServer('ch03-product-server', async (port) => {
       await sendHalfBody(port, '/products');
+      await sendHalfBody(port, '/rpc');
       await sleep(300);
       expect((await fetch(`http://localhost:${port}/products`)).status).toBe(200);
     });
