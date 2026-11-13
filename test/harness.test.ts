@@ -180,6 +180,12 @@ describe('出力のそろえ方', () => {
     expect(portsOfCurl("curl -s -w '\\n%{http_code}\\n' http://localhost:4010/orders")).toEqual([4010]);
   });
 
+  it('ポートを省いた URL はスキームの既定のポートで読み、Referer やプロキシの値の URL は送り先に数えない', () => {
+    expect(portsOfCurl('curl -s http://localhost/orders')).toEqual([80]);
+    expect(portsOfCurl('curl -s https://127.0.0.1/orders')).toEqual([443]);
+    expect(portsOfCurl('curl -s -e http://localhost:3999/ -x http://127.0.0.1:3128 http://localhost:3904/orders')).toEqual([3904]);
+  });
+
   it('ヘッダの値の中の URL のポートは、接続するポートに数えない', () => {
     const preflight = "curl -s -i -X OPTIONS http://127.0.0.1:3904/orders \\\n  -H 'Origin: http://localhost:3903'";
     expect(portsOfCurl(preflight)).toEqual([3904]);

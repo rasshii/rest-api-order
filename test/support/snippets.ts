@@ -116,18 +116,25 @@ export function curlWords(command: string): string[] {
   return [...joined.matchAll(/'([^']*)'|"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
 }
 
-/** curl のコマンドの、送り先の URL (http か https で始まる語) を返す。ヘッダや本文の中の URL は含まない。 */
+/** 値に URL を取るが、その URL が送り先でない option (Referer・プロキシ)。 */
+const urlValueOptions = ['-e', '--referer', '-x', '--proxy', '--preproxy'];
+
+/**
+ * curl のコマンドの、送り先の URL (http か https で始まる語) を返す。
+ * ヘッダや本文の中の URL と、urlValueOptions の値の URL は含まない。
+ */
 export function curlUrls(command: string): URL[] {
-  return curlWords(command)
-    .filter((word) => /^https?:\/\//.test(word))
+  const words = curlWords(command);
+  return words
+    .filter((word, index) => /^https?:\/\//.test(word) && !urlValueOptions.includes(words[index - 1] ?? ''))
     .map((word) => new URL(word));
 }
 
-/** curl のコマンドが接続する localhost のポートを返す。 */
+/** curl のコマンドが接続する localhost のポートを返す。ポートを省いた URL は、スキームの既定 (http は 80、https は 443)。 */
 export function portsOfCurl(command: string): number[] {
   const ports = curlUrls(command)
     .filter((url) => url.hostname === 'localhost' || url.hostname === '127.0.0.1')
-    .map((url) => Number(url.port));
+    .map((url) => Number(url.port || (url.protocol === 'https:' ? 443 : 80)));
   return [...new Set(ports)];
 }
 
@@ -140,27 +147,30 @@ export function lastLine(text: string): string {
 /*
  * ポートが使われているかを、127.0.0.1・::1・host を省いた形 (全部のアドレス) の順に待ち受けて確かめる。
  * macOS では、127.0.0.1 だけで待ち受けるサーバー (Prism の既定) があっても、host を省いた待ち受けは成功するので、
- * host を省いた形だけでは、そのサーバーに気づかない。::1 を持たない機 (EADDRNOTAVAIL) では、そのアドレスは空いているとみなす。
+ * host を省いた形だけでは、そのサーバーに気づかない。::1 を持たない機 (EADDRNOTAVAIL) と、IPv6 を使えない機 (EAFNOSUPPORT) では、
+ * そのアドレスは空いているとみなす。
  */
 const probeHosts: (string | undefined)[] = ['127.0.0.1', '::1', undefined];
+const absentAddressCodes = ['EADDRNOTAVAIL', 'EAFNOSUPPORT'];
 
 function probePort(port: number, host: string | undefined): Promise<string | undefined> {
   return new Promise((resolve) => {
     const probe = createServer();
-    probe.once('error', (error: NodeJS.ErrnoException) => resolve(error.code === 'EADDRNOTAVAIL' ? undefined : (error.code ?? 'error')));
+    probe.once('error', (error: NodeJS.ErrnoException) => resolve(absentAddressCodes.includes(error.code ?? '') ? undefined : (error.code ?? 'error')));
     const listening = () => probe.close(() => resolve(undefined));
     if (host === undefined) probe.listen(port, listening);
     else probe.listen(port, host, listening);
   });
 }
 
-/** 指定のポートで待ち受けられることを確かめる。使われていれば例外にする。 */
+/** 指定のポートで待ち受けられることを確かめる。使われているか、ほかの理由 (EACCES など) で待ち受けられなければ例外にする。 */
 export async function assertPortFree(port: number): Promise<void> {
   for (const host of probeHosts) {
     const code = await probePort(port, host);
-    if (code !== undefined) {
+    if (code === 'EADDRINUSE') {
       throw new Error(`ポート ${port} が使われている (${host ?? '全部のアドレス'} で ${code})。同じポートで動いている別のサーバーを止めてから回す`);
     }
+    if (code !== undefined) throw new Error(`ポート ${port} で待ち受けられない (${host ?? '全部のアドレス'} で ${code})`);
   }
 }
 
