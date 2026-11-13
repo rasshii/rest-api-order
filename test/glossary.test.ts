@@ -35,7 +35,7 @@ function isWords(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every(isText);
 }
 
-/*
+/**
  * 用語集の形の崩れを、見つけた順に文で返す。avoid のキーを綴り違えたり値を書き忘れたりすると、
  * その語の確かめが黙って抜けるので、知らないキーと、空の avoid も崩れとみなす。
  */
@@ -74,7 +74,7 @@ function markdownFiles(): string[] {
     .sort();
 }
 
-/*
+/**
  * 使わない語を探す前に、その語を含む用語集の語と allowed の語を消す。消さないと、「消費税額」の中の「税額」のように、
  * 正しい語の一部を使わない語として見つける。消すのはその語を含む語だけにする。用語集の語をすべて消すと、
  * 「税込価格」の中の「価格」も消えて、使わない語を見落とす。
