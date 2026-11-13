@@ -50,7 +50,7 @@ const columns: Record<string, Column> = {
 };
 
 const header = '| キー | 場所 | 語 | 型 | 注文するのリクエスト | 注文の表現 |';
-/** 場所は「最上位」か「`配列のキー` の要素」。place には、最上位なら空文字列を、配列の要素ならその配列のキーを入れる。 */
+/** キーの表の 1 行。場所の列は「最上位」か「`配列のキー` の要素」で、配列のキーを 2 つ目の組で拾う。 */
 const rowPattern = /^\| `([^`]+)` \| (?:最上位|`([^`]+)` の要素) \| ([^|]+) \| ([^|]+) \| (入れる|入れない) \| (入れる|入れない) \|$/;
 
 /** キーの表の本体の行 (見出しと区切りの行の次から、空行の前まで)。形の合わない行を数えられるよう、正規表現で拾う前の行を返す。 */
@@ -62,6 +62,7 @@ function keyTableLines(): string[] {
   return lines.slice(start + 2, end < 0 ? undefined : end);
 }
 
+/** キーの表の行。place には、最上位のキーなら空文字列を、配列の要素のキーならその配列のキーを入れる。 */
 const rows: KeyRow[] = keyTableLines().flatMap((line) => {
   const match = rowPattern.exec(line);
   if (match === null) return [];
@@ -72,7 +73,7 @@ const terms = isRecord(glossary) && Array.isArray(glossary.terms) ? glossary.ter
 const codeByName = new Map(terms.map((term) => [term.name, term.code]));
 const codes = terms.flatMap((term) => (typeof term.code === 'string' ? [term.code] : []));
 
-/*
+/**
  * キーの表の型ごとの確かめ方。表に、ここに無い型を書いたら、確かめ方が無いことを誤りとして返す
  * (型を足したのに確かめ方を足し忘れると、その型の値が何も確かめずに通るため)。
  */
