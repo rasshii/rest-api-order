@@ -45,7 +45,20 @@ function isJson(contentType: string | undefined): boolean {
   return contentType?.split(';')[0].trim().toLowerCase() === 'application/json';
 }
 
-/** JSON として読んだ値から、key の値を取り出す。オブジェクトでないか、key が無ければ undefined。 */
+/**
+ * 本文を文字列で受け取る。受け取る途中で接続が切れたら、応答を返す相手がいないので、接続を閉じて undefined を返す。
+ * 捕まえないと、この async の関数の外で処理されないまま、サーバーのプロセスが止まる。
+ */
+async function receiveBody(req: IncomingMessage, res: ServerResponse): Promise<string | undefined> {
+  try {
+    return await text(req);
+  } catch {
+    res.destroy();
+    return undefined;
+  }
+}
+
+/** 本文の JSON は null や数のこともあり、それに in を使うと例外になるので、オブジェクトと確かめてから key を読む。 */
 function fieldOf(value: unknown, key: string): unknown {
   return typeof value === 'object' && value !== null && key in value ? (value as Record<string, unknown>)[key] : undefined;
 }
@@ -61,14 +74,8 @@ async function createProduct(req: IncomingMessage, res: ServerResponse): Promise
     sendJson(res, 415, { message: '本文は application/json で送ってください' });
     return;
   }
-  let body: string;
-  try {
-    body = await text(req);
-  } catch {
-    // 本文を受け取る途中で接続が切れた。応答を返す相手がいないので、接続を閉じて終える。
-    res.destroy();
-    return;
-  }
+  const body = await receiveBody(req, res);
+  if (body === undefined) return;
   let input: unknown;
   try {
     input = JSON.parse(body);
@@ -85,19 +92,14 @@ async function createProduct(req: IncomingMessage, res: ServerResponse): Promise
   sendJson(res, 201, product, { Location: `/products/${product.id}` });
 }
 
-/*
+/**
  * RPC 風の口。取得も作成も POST /rpc に送り、何をするかを本文の call で指定する。
  * 結果も失敗も 200 で返し、本文の result と error のどちらがあるかで見分ける。
+ * /products の POST と違って Content-Type を見ず、本文を JSON として読めるかだけを見る。
  */
 async function callRpc(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  let body: string;
-  try {
-    body = await text(req);
-  } catch {
-    // 本文を受け取る途中で接続が切れた。応答を返す相手がいないので、接続を閉じて終える。
-    res.destroy();
-    return;
-  }
+  const body = await receiveBody(req, res);
+  if (body === undefined) return;
   let input: unknown;
   try {
     input = JSON.parse(body);
