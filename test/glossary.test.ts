@@ -74,7 +74,7 @@ const names = glossary.terms.map((term) => term.name);
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
-/*
+/**
  * 使わない語を探すファイルを、リポジトリの root からの相対パスで返す。docs/ の .md と .yaml (用語集そのものを除く) と、仕様の openapi/ の .yaml。
  * 仕様は lint の規則も探すが、lint は $ref の隣の description と YAML のコメントを見ないので、ファイルの文字としても探す。
  */
@@ -125,7 +125,7 @@ it('docs/ の文書と仕様に、用語集の使わない語が無い', () => {
   expect(found).toEqual([]);
 });
 
-/*
+/**
  * 仕様の lint の規則 rule/glossary-avoid が探す正規表現 (redocly.yaml に、用語集から手で写したもの)。
  * Redocly は notPattern の '/<式>/<フラグ>' を正規表現として読むので、同じ形で JavaScript の正規表現にする。
  */

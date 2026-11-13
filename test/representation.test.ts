@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { loadSpec, refName } from './support/openapi.ts';
+import { isRecord, loadSpec, refName } from './support/openapi.ts';
 
 interface KeyRow {
   key: string;
@@ -22,10 +22,6 @@ type Column = 'inRequest' | 'inOrder';
 
 function read(path: string): string {
   return readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** JSON として読めなければ、理由の文を返す。読めない例は、ほかのテストを止めずに、1 つ目のテストで落とす。 */

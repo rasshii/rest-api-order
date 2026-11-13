@@ -6,9 +6,9 @@
 import { readdirSync } from 'node:fs';
 import type { Dirent } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { runRedocly } from './redocly.ts';
+import { repoRoot, runRedocly } from './redocly.ts';
 
+/** 落ちる例の置き場。Redocly CLI はリポジトリの root で回すので、root からの相対パスで持つ。 */
 export const fixtureDir = 'test/fixtures/lint';
 
 /** どの規則にも当たらない土台。落ちる例は、これの 1 か所 (1 つの応答・スキーマ・値) だけを変えたもの。 */
@@ -24,7 +24,7 @@ function visible(dir: string): Dirent[] {
  * 読まないもの (規則のディレクトリの外のファイル・YAML でないファイル・規則のディレクトリの下のディレクトリ) があれば例外にする。
  * どの規則とも結ばれないまま、回されずに通るため。
  */
-export function lintFixtures(root = fileURLToPath(new URL('../fixtures/lint/', import.meta.url))): { file: string; rule: string }[] {
+export function lintFixtures(root = join(repoRoot, fixtureDir)): { file: string; rule: string }[] {
   const entries = visible(root);
   const stray = entries.filter((entry) => !entry.isDirectory() && entry.name !== baseFixture).map((entry) => entry.name);
   if (stray.length > 0) throw new Error(`規則のディレクトリの外にファイルがある: ${stray.join(', ')}`);
@@ -44,7 +44,7 @@ export function lintFixtures(root = fileURLToPath(new URL('../fixtures/lint/', i
     });
 }
 
-/*
+/**
  * 1 つのファイルを redocly.yaml の規則で lint し、終了コードと、指摘のあった規則の名前 (重ねない) を返す。
  * 複数のファイルを 1 回で渡すと JSON の文書がファイルの数だけ続いて出るので、1 ファイルずつ回す。
  */

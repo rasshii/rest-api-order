@@ -10,6 +10,7 @@ import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect, it, vi } from 'vitest';
+import { baseFixture, fixtureDir } from './support/lint.ts';
 import { normalizeOutput } from './support/replacements.ts';
 import {
   assertAlive,
@@ -146,9 +147,9 @@ describe('コマンドの実行', () => {
     // 手元に NO_COLOR があると、runCommand が NO_COLOR を渡さなくても色が付かず、確かめにならないので外す。
     vi.stubEnv('NO_COLOR', undefined);
     try {
-      const { output, status } = runCommand('npx redocly lint test/fixtures/lint/valid.yaml', root);
+      const { output, status } = runCommand(`npx redocly lint ${fixtureDir}/${baseFixture}`, root);
       expect(status).toBe(0);
-      expect(output).toContain('validating test/fixtures/lint/valid.yaml...');
+      expect(output).toContain(`validating ${fixtureDir}/${baseFixture}...`);
       expect(output.includes('\u001b[')).toBe(false);
     } finally {
       vi.unstubAllEnvs();

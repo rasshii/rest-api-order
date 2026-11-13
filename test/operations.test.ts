@@ -82,7 +82,7 @@ function shapeProblems(value: unknown): string[] {
 const problems = shapeProblems(raw);
 const parsed: Operation[] = problems.length === 0 ? (raw as { operations: Operation[] }).operations : [];
 
-/*
+/**
  * 対応表の操作。形が崩れると空になり、行ごとに確かめる it が何も確かめずに通る (-t で 1 本だけ回したときも) ので、
  * どの it もこれを通して読み、形の崩れと空をその it の失敗にする。
  */

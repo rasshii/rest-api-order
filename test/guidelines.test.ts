@@ -29,7 +29,7 @@ function protectionCells(text: string): string[] {
   return cells;
 }
 
-/*
+/**
  * 守り方の 1 つずつの形。どれにも合わない書き方は誤りにする
  * (綴りを崩した守り方が、照らされないまま守っていると読めるため)。
  */

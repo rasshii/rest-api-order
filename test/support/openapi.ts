@@ -11,7 +11,7 @@ import formats from 'ajv-formats';
 import { parse } from 'yaml';
 import { runRedocly } from './redocly.ts';
 
-/*
+/**
  * 分けた仕様を一時のファイルに束ね、内部の参照 ('#/components/...') だけを持つ 1 つの文書にして返す。
  * npm run bundle が作る dist/ は読まない。元を直して束ね直し忘れると、テストが古い仕様を確かめて通るため。
  */
