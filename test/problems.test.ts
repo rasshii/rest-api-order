@@ -74,7 +74,7 @@ const jsonPointer = /^(\/([^/~]|~[01])*)*$/;
 const memberChecks: Record<string, (value: unknown) => boolean> = {
   errors: (value) =>
     Array.isArray(value) &&
-    value.length > 0 &&
+    value.length === 1 &&
     value.every((error) => isRecord(error) && Object.keys(error).sort().join() === 'detail,pointer' && typeof error.pointer === 'string' && jsonPointer.test(error.pointer) && isText(error.detail)),
   productIds: (value) => Array.isArray(value) && value.length > 0 && value.every(isText) && new Set(value).size === value.length,
   trackingId: isText,
@@ -138,7 +138,8 @@ function alternateFlows(problems: string[]): string[] {
       return [];
     }
     if (!inFlows) {
-      if (/^\s*[-*] \*\*\d+[a-z]\*\*/.test(line)) problems.push(`別の流れの節の外にある別の流れの行: ${line}`);
+      // 箇条の印は -・*・+ と番号 (1. や 1))。印の後の空白の数は問わない。
+      if (/^\s*([-*+]|\d+[.)])\s+\*\*\d+[a-z]\*\*/.test(line)) problems.push(`別の流れの節の外にある別の流れの行: ${line}`);
       return [];
     }
     if (line === '') return [];
@@ -148,11 +149,12 @@ function alternateFlows(problems: string[]): string[] {
   });
 }
 
-/** 値か、その中の配列の要素とオブジェクトの値のどこかに null があるか。 */
-function hasNull(value: unknown): boolean {
-  if (value === null) return true;
-  if (Array.isArray(value)) return value.some(hasNull);
-  return isRecord(value) && Object.values(value).some(hasNull);
+/** 値の中の null の位置を、JSON Pointer で返す。どこを直せばよいかを、落ちたときの文に出すため。 */
+function nullPointers(value: unknown, pointer = ''): string[] {
+  if (value === null) return [pointer];
+  if (Array.isArray(value)) return value.flatMap((item, index) => nullPointers(item, `${pointer}/${index}`));
+  if (!isRecord(value)) return [];
+  return Object.entries(value).flatMap(([key, item]) => nullPointers(item, `${pointer}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`));
 }
 
 /** 用語集の語の名前から code を引く表。 */
@@ -186,7 +188,7 @@ it('問題の型の表の行はどれも決めた形で書かれ、例のファ�
   expect(problems).toEqual([]);
 });
 
-it('例の type・title・status は表の行と同じで、例は行の拡張メンバーをすべて持ち、ほかには RFC 9457 の type・title・status・detail だけを持ち、null が無い', () => {
+it('例の type・title・status は表の行と同じで、detail は空でない文字列で、例は行の拡張メンバーをすべて持ち、ほかには RFC 9457 の type・title・status・detail だけを持ち、null が無い', () => {
   const problems: string[] = [];
   for (const row of typeRows) {
     const example = examples.get(row.example);
@@ -195,10 +197,11 @@ it('例の type・title・status は表の行と同じで、例は行の拡張�
     if (example.type !== row.type) problems.push(`${where}: type が ${JSON.stringify(example.type)} で、表の ${row.type} と違う`);
     if (example.title !== row.title) problems.push(`${where}: title が ${JSON.stringify(example.title)} で、表の ${row.title} と違う`);
     if (example.status !== row.status) problems.push(`${where}: status が ${JSON.stringify(example.status)} で、表の ${row.status} と違う`);
+    if ('detail' in example && !isText(example.detail)) problems.push(`${where}: detail が ${JSON.stringify(example.detail)} で、空でない文字列でない`);
     const keys = Object.keys(example);
     for (const key of keys.filter((key) => !standardMembers.includes(key) && !row.members.includes(key))) problems.push(`${where}: 表に無いメンバー ${key}`);
     for (const member of row.members.filter((member) => !keys.includes(member))) problems.push(`${where}: 拡張メンバー ${member} が無い`);
-    if (hasNull(example)) problems.push(`${where}: null がある`);
+    for (const pointer of nullPointers(example)) problems.push(`${where}: ${pointer} が null`);
   }
   expect(problems).toEqual([]);
 });
@@ -240,7 +243,7 @@ it('例の拡張メンバーの値は、そのメンバーの決まりに合い�
   expect(problems).toEqual([]);
 });
 
-it('失敗の一覧の行とユースケースの別の流れの行はどれも決めた形で書かれ、別の流れはどれも失敗の一覧にちょうど 1 回あり、一覧の型とステータスコードの組は問題の型の表にあり、表の型はどれも一覧で使う', () => {
+it('失敗の一覧の行とユースケースの別の流れの行はどれも決めた形で書かれ、別の流れは use-cases.md に 1 回ずつで、どれも失敗の一覧にちょうど 1 回あり、一覧の型とステータスコードの組は問題の型の表にあり、表の型はどれも一覧で使う', () => {
   const problems = [...failureShape];
   const flows = alternateFlows(problems);
   if (flows.length === 0) problems.push('use-cases.md に別の流れが無い');
