@@ -120,11 +120,11 @@ const typeRows = rows<TypeRow>(
 const memberRows = rows<MemberRow>(memberHeader, memberPattern, (m) => ({ member: m[1], term: m[2], type: m[3] }), memberShape);
 const failureRows = rows<FailureRow>(failureHeader, failurePattern, (m) => ({ useCase: m[1], type: m[2], status: Number(m[3]) }), failureShape);
 
-/*
+/**
  * use-cases.md の別の流れを、「注文する 2a」のようにユースケースの名前と手順の番号で返す。
- * 「### 別の流れ」の節の行は、決めた形 (- **2a** …) で拾えなければ problems に足す。書き方の違う 1 行が黙って抜けると、
- * その流れが失敗の一覧に無くても 6 本目が通るため。同じ理由で、ユースケースの見出しの下に無い別の流れの節、
- * 「別の流れ」を含むのに形の違う見出し、節の外にある別の流れの形の行も、形の崩れとして足す。
+ * 決めた形 (「## ユースケース: 」の下の「### 別の流れ」の節の「- **2a** …」の行) で拾えない行と見出しは、problems に足す。
+ * 書き方の違う 1 行が黙って抜けると、その流れが失敗の一覧に無くても 6 本目が通るため。
+ * 同じ別の流れが 2 回あるかは、返した一覧で 6 本目が確かめる。
  */
 function alternateFlows(problems: string[]): string[] {
   let name = '';
