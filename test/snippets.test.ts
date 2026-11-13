@@ -49,7 +49,7 @@ let runningChapter = '';
 
 const stopAll = () => running.stopAll();
 
-/*
+/**
  * 例 1 つの時間の上限。サーバーの起動を待つ上限 (startServer の 30 秒) とコマンドの上限 (runCommand の 300 秒) と、
  * サーバーを止める待ち (stopServer の 10 秒) を足したものより長くする。Vitest の既定 (5 秒) のままだと、
  * 起動の遅い道具 (npm run を挟むもの) の例が、起動を待つ途中で時間切れになる。

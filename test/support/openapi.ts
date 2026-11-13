@@ -13,7 +13,7 @@ export function loadSpec(): unknown {
   return parse(readFileSync(fileURLToPath(new URL('../../openapi/openapi.yaml', import.meta.url)), 'utf8'));
 }
 
-/*
+/**
  * 仕様の components/schemas の部品を JSON Schema 2020-12 の検証器に登録し、部品の名前で検証の関数を返す。
  * 仕様の文書は JSON Schema ではない (openapi・paths などを持つ) ので、components/schemas だけを持つ文書に包んで登録する。
  * 部品どうしの '#/components/schemas/<名前>' の参照は、包んだ文書の中で解決する。format (email・date-time など) も検証する。

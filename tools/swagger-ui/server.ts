@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const port = 3903;
 const spec = fileURLToPath(new URL('../../openapi/openapi.yaml', import.meta.url));
 
-/*
+/**
  * swagger-ui-dist の index.js は、読み込むとブラウザ向けの bundle まで読み込むので import しない。
  * package.json の場所から、配るファイルのあるディレクトリだけを求める。
  */
@@ -30,7 +30,7 @@ const assets: Record<string, string> = {
   '/favicon-16x16.png': 'image/png',
 };
 
-/*
+/**
  * swagger-ui-dist の swagger-initializer.js の代わりに配る、初期化の script。
  * 読む仕様をこのサーバーの /openapi.yaml にする。リクエストを送る先がまだ無いので、Try it out は出さない。
  */
