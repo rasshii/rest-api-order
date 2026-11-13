@@ -154,6 +154,10 @@ async function isReady(server: RunningServer): Promise<boolean> {
   const { ready, port } = server.spec;
   if ('output' in ready) return server.output.includes(ready.output);
   try {
+    /*
+     * IP アドレスでなく localhost に送る。127.0.0.1 に送ると ::1 だけで待ち受けるサーバーに届かず、
+     * localhost なら 127.0.0.1 だけで待ち受けるサーバーにも ::1 だけで待ち受けるサーバーにも届く。
+     */
     await fetch(`http://localhost:${port}${ready.http}`);
     return true;
   } catch {
