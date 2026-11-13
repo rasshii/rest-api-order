@@ -4,6 +4,7 @@
  */
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { text } from 'node:stream/consumers';
 
 const port = 3902;
 
@@ -18,41 +19,47 @@ const products: Product[] = [
 ];
 let nextNumber = 3;
 
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.setEncoding('utf8');
-    req.on('data', (chunk: string) => (body += chunk));
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
-}
-
-/** 本文を JSON で返す。HEAD のリクエストには、Node.js が本文を送らずにヘッダだけを返す。 */
+/**
+ * 本文を JSON で返す。HEAD のリクエストには、Node.js が本文を送らずにヘッダだけを返す。
+ * Content-Length を書くのは、HEAD の応答にも GET と同じ長さを載せるため。書かないと Node.js は本文を chunked で送り、
+ * HEAD の応答に長さが出ない。
+ */
 function sendJson(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
-  const text = `${JSON.stringify(body, null, 2)}\n`;
+  const json = `${JSON.stringify(body, null, 2)}\n`;
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Content-Length': String(Buffer.byteLength(text)),
+    'Content-Length': String(Buffer.byteLength(json)),
     ...headers,
   });
-  res.end(text);
+  res.end(json);
 }
 
-/** 本文の無い応答を返す。 */
-function sendEmpty(res: ServerResponse, status: number, headers: Record<string, string> = {}): void {
+function sendEmpty(res: ServerResponse, status: number, headers: Record<string, string>): void {
   res.writeHead(status, headers);
   res.end();
 }
 
+/** Content-Type が JSON か。パラメータ (; charset=utf-8 など) を除いた type と subtype を、大文字小文字を区別せずに比べる。 */
+function isJson(contentType: string | undefined): boolean {
+  return contentType?.split(';')[0].trim().toLowerCase() === 'application/json';
+}
+
 async function createProduct(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  if (req.headers['content-type'] !== 'application/json') {
+  if (!isJson(req.headers['content-type'])) {
     sendJson(res, 415, { message: '本文は application/json で送ってください' });
+    return;
+  }
+  let body: string;
+  try {
+    body = await text(req);
+  } catch {
+    // 本文を受け取る途中で接続が切れた。応答を返す相手がいないので、接続を閉じて終える。
+    res.destroy();
     return;
   }
   let input: unknown;
   try {
-    input = JSON.parse(await readBody(req));
+    input = JSON.parse(body);
   } catch {
     sendJson(res, 400, { message: '本文が JSON として読めません' });
     return;
@@ -68,14 +75,18 @@ async function createProduct(req: IncomingMessage, res: ServerResponse): Promise
 }
 
 createServer(async (req, res) => {
+  // http.Server が渡すリクエストには、method と url が必ずある (型が省略可なのは、クライアントが受ける応答と型を共用するため)。
+  const method = req.method!;
+  const target = req.url!;
   /*
-   * リクエストの対象は / で始まるパスとは限らず、*:99999 のように URL として読めないものも届く。
-   * new URL は読めないと例外を投げ、この async の関数の外で処理されないまま、サーバーのプロセスが止まる。
+   * リクエストの対象は、/ で始まるパス (origin-form) のほかに、http://… の絶対形式 (absolute-form) でも届き、
+   * サーバーは絶対形式も受け付ける (RFC 9112 の 3.2.2)。パスは localhost を前に付けて、ほかは URL として読む。
+   * *:99999 のように URL として読めないものも届く。new URL は読めないと例外を投げ、この async の関数の外で
+   * 処理されないまま、サーバーのプロセスが止まるので、読めなければ null を返す URL.parse を使う。
    */
-  const url = URL.parse(`http://localhost${req.url}`);
+  const url = target.startsWith('/') ? URL.parse(`http://localhost${target}`) : URL.parse(target);
   if (url === null) return sendJson(res, 400, { message: 'リクエストの対象を URL として読めません' });
   const path = url.pathname;
-  const method = req.method ?? 'GET';
 
   if (path === '/products') {
     const allow = 'GET, HEAD, POST, OPTIONS';
