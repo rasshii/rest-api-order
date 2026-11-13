@@ -35,7 +35,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** keys のキーをすべて持ち、ほかのキーを持たないか。 */
+/** 綴りを誤ったキーを見つけるため、keys のキーが欠けているときだけでなく、keys に無いキーがあるときも false にする。 */
 function hasExactly(value: unknown, keys: string[]): value is Record<string, unknown> {
   return isRecord(value) && Object.keys(value).sort().join() === [...keys].sort().join();
 }
@@ -72,7 +72,7 @@ function isRateTotal(value: unknown): boolean {
   );
 }
 
-/*
+/**
  * 計算例の形の崩れを、見つけた順に文で返す。キーの綴り違いや値の型の誤りがあると、計算と照らす前に値が読めず、
  * 例が黙って抜けるか、誤った理由で落ちるので、先に形を確かめる。
  */
