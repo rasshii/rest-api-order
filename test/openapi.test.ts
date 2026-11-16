@@ -193,10 +193,7 @@ it('仕様の名前付きの例が、同じ名前の例のファイルと同じ�
   expect(Object.keys(namedExamples).sort()).toEqual(expected);
 });
 
-/**
- * 失敗の一覧の操作の列は、対応表のユースケースの名前か、「両方」(すべての操作) か「操作の外」(どの操作にも書けない)。
- * 対応表のユースケースで仕様の操作を引き、その操作の 4xx と 5xx の応答のキーを、一覧のステータスコードの組と比べる。
- */
+// 失敗の一覧の操作の列は、対応表のユースケースの名前か、「両方」(すべての操作) か「操作の外」(どの操作にも書けない)。
 it('失敗の一覧の操作とステータスコードの組が、仕様のその操作の 4xx と 5xx の応答と一致する', () => {
   const problems: string[] = [];
   const failures = rows(read('docs/api-design/problems.md'), failureHeader, failurePattern, (m) => ({ operation: m[1].trim(), status: m[3] }), problems);

@@ -126,11 +126,15 @@ describe('商品のサーバーが受け付けるリクエストの形', () => {
 });
 
 describe('Swagger UI の配信のサーバー', () => {
+  /*
+   * この it は、記事と同じ .server (npm run を挟む。12 章からは仕様を束ねてから起動する) で起動するので、
+   * Vitest の既定の上限 (5 秒) では、起動を待つ途中で時間切れになりうる。上限を延ばす。
+   */
   it('request-target が絶対形式 (http://…) でも、パスで応答を選ぶ', async () => {
     await withServer('ch11-swagger-ui', async (port) => {
       expect(await statusLineOf(port, `GET http://localhost:${port}/openapi.yaml HTTP/1.1`)).toBe('HTTP/1.1 200 OK');
     });
-  });
+  }, 60_000);
 
   it('配る仕様のファイルが無いと 500 を返し、止まらない', async () => {
     // リポジトリのファイルを動かさないよう、サーバーのファイルだけを一時のディレクトリに写し、仕様のファイルを置かずに起動する。

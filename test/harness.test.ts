@@ -275,7 +275,7 @@ describe('起動したサーバーの持ち方 (ServerPool)', () => {
     for (const name of ['a', 'b', 'c']) await pool.get(name);
     await expect(pool.stopAll()).rejects.toThrow('a を止められない');
     expect(stopped.sort()).toEqual(['b', 'c']);
-    expect(pool.has('a')).toBe(false);
+    expect(['a', 'b', 'c'].filter((name) => pool.has(name))).toEqual([]);
   });
 
   it('起動に失敗したサーバーは止めにかからず、stopAll は例外にしない', async () => {

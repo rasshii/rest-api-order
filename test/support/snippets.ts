@@ -225,7 +225,8 @@ async function isReady(server: RunningServer): Promise<boolean> {
 /**
  * 起動した子のプロセスが生きていることを確かめる。
  * 空きを確かめてから待ち受けるまでの間に別の実行がポートを取ると、こちらの子は終わり、
- * 起動の条件と curl は相手のサーバーで成り立ってしまうため、起動の後と例の後に確かめる。
+ * 起動の条件と curl は相手のサーバーで成り立ってしまうため、例の後に確かめる
+ * (起動の直後は、startServer が同じ条件を見て、プロセスグループを止めてから例外にする)。
  */
 export function assertAlive(server: RunningServer): void {
   if (server.exited) {
