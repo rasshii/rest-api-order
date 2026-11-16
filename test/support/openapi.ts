@@ -1,6 +1,6 @@
 /*
  * 注文 API の仕様 (openapi/ に分けたもの) を読み、テストから使える形にする処理。
- * 仕様のファイルの置き方を変えたら、読み方はここだけを直す。
+ * 仕様の入口のパスを変えるときに直す所は、specEntry の説明に挙げる。
  */
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,6 +12,12 @@ import { parse } from 'yaml';
 import { runRedocly } from './redocly.ts';
 
 /**
+ * 仕様の入口 (リポジトリの root からの相対パス)。テストはこの名前で引く。package.json の lint と bundle の script も
+ * 同じパスを書く。JSON の script はこの名前を引けないので、入口を変えたらその 2 つも直す。
+ */
+export const specEntry = 'openapi/openapi.yaml';
+
+/**
  * 分けた仕様を一時のファイルに束ね、内部の参照 ('#/components/...') だけを持つ 1 つの文書にして返す。
  * npm run bundle が作る dist/ は読まない。元を直して束ね直し忘れると、テストが古い仕様を確かめて通るため。
  */
@@ -19,7 +25,7 @@ export function loadSpec(): unknown {
   const dir = mkdtempSync(join(tmpdir(), 'rest-api-order-spec-'));
   try {
     const out = join(dir, 'openapi.yaml');
-    const result = runRedocly(['bundle', 'openapi/openapi.yaml', '--output', out]);
+    const result = runRedocly(['bundle', specEntry, '--output', out]);
     if (result.status !== 0) throw new Error(`仕様を束ねられない:\n${result.stderr}`);
     return parse(readFileSync(out, 'utf8'));
   } finally {
