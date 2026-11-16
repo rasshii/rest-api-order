@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
 import { mockServer, specForBrowser } from '../tools/swagger-ui/spec-for-browser.ts';
+import { specEntry } from './support/openapi.ts';
 import { runRedocly } from './support/redocly.ts';
 import { assertAlive, readServersFile, startServer, stopServer } from './support/snippets.ts';
 
@@ -42,7 +43,7 @@ it('キーと値の組でない文書 (空・配列) と、servers が配列で�
 it('配信のサーバーは、/openapi.yaml に dist/openapi.yaml の servers の先頭へモックを足したものを配り、読めない仕様には 500 を返す', async () => {
   const dist = fileURLToPath(new URL('../dist/openapi.yaml', import.meta.url));
   const bundle = () => {
-    const result = runRedocly(['bundle', 'openapi/openapi.yaml', '--output', 'dist/openapi.yaml']);
+    const result = runRedocly(['bundle', specEntry, '--output', 'dist/openapi.yaml']);
     if (result.status !== 0) throw new Error(`仕様を束ねられない:\n${result.stderr}`);
   };
   bundle();

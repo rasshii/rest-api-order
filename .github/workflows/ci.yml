@@ -5,9 +5,15 @@ on:
     branches: [main]
   pull_request:
 
+# 書かない権限は none になる。checkout がリポジトリを読むのに要る contents の読み取りだけを渡す。
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # 既定の 360 分より短く切り、止まらないサーバーやテストで実行が長く残らないようにする。
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

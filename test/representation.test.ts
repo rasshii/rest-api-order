@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { loadSpec, refName } from './support/openapi.ts';
+import { isRecord, loadSpec, refName } from './support/openapi.ts';
 
 interface KeyRow {
   key: string;
@@ -22,10 +22,6 @@ type Column = 'inRequest' | 'inOrder';
 
 function read(path: string): string {
   return readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** JSON として読めなければ、理由の文を返す。読めない例は、ほかのテストを止めずに、1 つ目のテストで落とす。 */
@@ -51,7 +47,7 @@ const columns: Record<string, Column> = {
 };
 
 const header = '| キー | 場所 | 語 | 型 | 注文するのリクエスト | 注文の表現 |';
-/** 場所は「最上位」か「`配列のキー` の要素」。place には、最上位なら空文字列を、配列の要素ならその配列のキーを入れる。 */
+/** キーの表の 1 行。場所の列は「最上位」か「`配列のキー` の要素」で、配列のキーを 2 つ目の組で拾う。 */
 const rowPattern = /^\| `([^`]+)` \| (?:最上位|`([^`]+)` の要素) \| ([^|]+) \| ([^|]+) \| (入れる|入れない) \| (入れる|入れない) \|$/;
 
 /** キーの表の本体の行 (見出しと区切りの行の次から、空行の前まで)。形の合わない行を数えられるよう、正規表現で拾う前の行を返す。 */
@@ -63,6 +59,7 @@ function keyTableLines(): string[] {
   return lines.slice(start + 2, end < 0 ? undefined : end);
 }
 
+/** キーの表の行。place には、最上位のキーなら空文字列を、配列の要素のキーならその配列のキーを入れる。 */
 const rows: KeyRow[] = keyTableLines().flatMap((line) => {
   const match = rowPattern.exec(line);
   if (match === null) return [];
@@ -73,7 +70,7 @@ const terms = isRecord(glossary) && Array.isArray(glossary.terms) ? glossary.ter
 const codeByName = new Map(terms.map((term) => [term.name, term.code]));
 const codes = terms.flatMap((term) => (typeof term.code === 'string' ? [term.code] : []));
 
-/*
+/**
  * 型と範囲の正本は仕様のスキーマ (docs/api-design/guidelines.md)。値の範囲 (税率の候補・注文明細の上限) は、
  * キーの表の型の列 (読む人のための要約) やこのファイルに書かず、仕様から読む。
  */
@@ -94,7 +91,7 @@ function propertySchema(schema: string, key: string): Record<string, unknown> {
 
 const taxRates = Array.isArray(propertySchema('OrderLine', 'taxRate').enum) ? (propertySchema('OrderLine', 'taxRate').enum as unknown[]) : [];
 
-/*
+/**
  * キーの表の型ごとの確かめ方。表に、ここに無い型を書いたら、確かめ方が無いことを誤りとして返す
  * (型を足したのに確かめ方を足し忘れると、その型の値が何も確かめずに通るため)。
  */
@@ -234,12 +231,12 @@ it('注文の例は、リクエストの例と同じ注文を表し、金額は�
   expect(order.lines.map(({ productId, quantity }) => ({ productId, quantity }))).toStrictEqual(request.lines);
 
   const calculations = isRecord(taxCalculation) && Array.isArray(taxCalculation.examples) ? taxCalculation.examples.filter(isRecord) : [];
-  const calculation = calculations.find((example) => example.name === '税率ごとに注文明細が 1 つずつで、端数が出ない') as
-    | { lines: { unitPrice: number; quantity: number; taxRate: number }[]; total: number; taxAmount: number }
+  const calculation = calculations.find((example) => example.title === '税率ごとに注文明細が 1 つずつで、端数が出ない') as
+    | { lines: { productId: string; unitPrice: number; quantity: number; taxRate: number }[]; total: number; taxAmount: number }
     | undefined;
   expect(calculation).toBeDefined();
-  expect(order.lines.map(({ unitPrice, quantity, taxRate }) => ({ unitPrice, quantity, taxRate }))).toStrictEqual(
-    calculation?.lines.map(({ unitPrice, quantity, taxRate }) => ({ unitPrice, quantity, taxRate })),
+  expect(order.lines.map(({ productId, unitPrice, quantity, taxRate }) => ({ productId, unitPrice, quantity, taxRate }))).toStrictEqual(
+    calculation?.lines.map(({ productId, unitPrice, quantity, taxRate }) => ({ productId, unitPrice, quantity, taxRate })),
   );
   expect({ total: order.total, taxAmount: order.taxAmount }).toStrictEqual({ total: calculation?.total, taxAmount: calculation?.taxAmount });
 });

@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { isRecord } from './support/openapi.ts';
 
 interface Term {
   name: string;
@@ -24,10 +25,6 @@ interface Glossary {
 const docs = fileURLToPath(new URL('../docs/', import.meta.url));
 const raw: unknown = parse(readFileSync(join(docs, 'glossary.yaml'), 'utf8'));
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value !== '';
 }
@@ -36,7 +33,7 @@ function isWords(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every(isText);
 }
 
-/*
+/**
  * 用語集の形の崩れを、見つけた順に文で返す。avoid のキーを綴り違えたり値を書き忘れたりすると、
  * その語の確かめが黙って抜けるので、知らないキーと、空の avoid も崩れとみなす。
  */
@@ -74,7 +71,7 @@ const names = glossary.terms.map((term) => term.name);
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
-/*
+/**
  * 使わない語を探すファイルを、リポジトリの root からの相対パスで返す。docs/ の .md と .yaml (用語集そのものを除く) と、仕様の openapi/ の .yaml。
  * 仕様は lint の規則も探すが、lint は $ref の隣の description と YAML のコメントを見ないので、ファイルの文字としても探す。
  */
@@ -86,7 +83,7 @@ function searchedFiles(): string[] {
   return [...under('docs', ['.md', '.yaml']), ...under('openapi', ['.yaml'])].filter((file) => file !== join('docs', 'glossary.yaml')).sort();
 }
 
-/*
+/**
  * 使わない語を探す前に、その語を含む用語集の語と allowed の語を消す。消さないと、「消費税額」の中の「税額」のように、
  * 正しい語の一部を使わない語として見つける。消すのはその語を含む語だけにする。用語集の語をすべて消すと、
  * 「税込価格」の中の「価格」も消えて、使わない語を見落とす。
@@ -125,7 +122,7 @@ it('docs/ の文書と仕様に、用語集の使わない語が無い', () => {
   expect(found).toEqual([]);
 });
 
-/*
+/**
  * 仕様の lint の規則 rule/glossary-avoid が探す正規表現 (redocly.yaml に、用語集から手で写したもの)。
  * Redocly は notPattern の '/<式>/<フラグ>' を正規表現として読むので、同じ形で JavaScript の正規表現にする。
  */

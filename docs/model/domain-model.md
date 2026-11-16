@@ -92,3 +92,13 @@ classDiagram
   OrderLine ..> Product : productId で指す
   Inventory ..> Product : productId で指す
 ```
+
+## 消費税額の計算例
+
+`examples/domain/tax-calculation.json` は、合計と消費税額の求め方の計算例を持つ。`test/tax-calculation.test.ts` が、例の値が求め方と合うことを確かめる。
+
+- `rounding` は 1 円未満の端数の処理で、`floor` は切り捨て
+- 例ごとのキーは `title` (例の題)・`lines`・`total`・`taxByRate`・`taxAmount`
+- `lines` の要素は、注文明細 (OrderLine) と同じ `productId`・`unitPrice`・`quantity`・`taxRate`。商品 ID は例のための仮の値
+- `total` と `taxAmount` は、注文の合計と消費税額 (用語集の合計と消費税額)
+- `taxByRate` は、税率ごとの内訳を税率の昇順に並べたもの。要素の `total` はその税率の注文明細の単価と数量の積の和、`taxAmount` はその和から割り戻した消費税額で、どちらも税率ごとの額 (用語集の合計と消費税額は注文の単位)

@@ -3,14 +3,17 @@
  * 始めるための手順 (docs/getting-started.md) の「受け入れ条件とモック」の表にそろっていることを確かめる。
  * 受け入れ条件は、モックで確かめるもの (Bruno のリクエストがある) と、モックで確かめられないもの (表に理由がある) に分ける。
  * どちらにも入らない受け入れ条件があると、確かめたつもりで抜けるため。
- * モックへ実際にリクエストを送って assert が通ることは、記事の例 (snippets の bru run) が確かめる。
+ * 例を返すモックへ実際にリクエストを送って assert が通ることは、記事の例 (snippets の bru run) が確かめる。
+ * 値を作るモックへ送ると落ちることは、記事の例は終了コードだけを見るので、落ちた理由をこのファイルの最後の it が確かめる。
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { rows as readTable } from './support/markdown.ts';
 import { isRecord } from './support/openapi.ts';
+import { readServersFile, runCommand, startServer, stopServer } from './support/snippets.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const stories = readFileSync(join(root, 'docs/requirements/stories.md'), 'utf8');
@@ -116,3 +119,48 @@ it('例の商品 ID の表の商品 ID が、仕様の例のもとの JSON (exam
     .join('\n');
   for (const id of ids) expect(examples, id).toContain(`"${id}"`);
 });
+
+it('例の商品 ID の表の商品は、受け入れ条件の前提の価格と税率で、注文の例の同じ商品 ID の注文明細にある', () => {
+  /*
+   * 前提の表 (stories.md) の価格と税率を、注文の例の注文明細の単価と税率と照らす。商品 ID を入れ替えると、単価が食い違う。
+   * 表が無いか行が無いときと、形の合わない行があるときは、テストを落とす。黙って抜けると、何も照らさずに通るため。
+   */
+  const problems: string[] = [];
+  const premises = new Map(
+    readTable(stories, '| 商品 | 価格 | 税率 | 在庫 |', /^\| (\S+) \| ([\d,]+) 円 \| (\d+)% [^|]*\| \d+ \|$/, (m) => [m[1], { unitPrice: Number(m[2].replaceAll(',', '')), taxRate: Number(m[3]) }] as const, problems),
+  );
+  expect(problems).toEqual([]);
+  const order = JSON.parse(readFileSync(join(root, 'examples/orders/order.json'), 'utf8')) as { lines: { productId: string; unitPrice: number; taxRate: number }[] };
+  const listed = tableRows('例の商品 ID')
+    .map(([name, id]) => ({ name, id: id.replace(/^`|`$/g, '') }))
+    .filter((row) => premises.has(row.name));
+  expect(listed.map((row) => row.name).sort()).toEqual([...premises.keys()].sort());
+  for (const { name, id } of listed) {
+    const line = order.lines.find((l) => l.productId === id);
+    expect(line && { unitPrice: line.unitPrice, taxRate: line.taxRate }, `${name} (${id})`).toEqual(premises.get(name));
+  }
+});
+
+it('Bruno の環境の baseUrl は、記事の例を返すモック (servers.json の ch13-mock) のポートを指す', () => {
+  const env: unknown = parse(readFileSync(join(root, 'bruno/environments/mock.yml'), 'utf8'));
+  const variables = isRecord(env) && Array.isArray(env.variables) ? env.variables.filter(isRecord) : [];
+  const baseUrl = variables.find((variable) => variable.name === 'baseUrl')?.value;
+  expect(typeof baseUrl, 'mock.yml の baseUrl').toBe('string');
+  const mock = readServersFile(join(root, 'test/snippets')).servers['ch13-mock'];
+  expect(Number(new URL(String(baseUrl)).port)).toBe(mock.port);
+});
+
+it('値を作るモックへのコレクションは、送り先に届いた上で、assert の外れで落ちる (記事の ch13-21)', async () => {
+  // 記事の例は終了コード 1 だけを見るので、送り先を誤って接続を断られても 1 で通る。ここで落ちた理由を見分ける。
+  const name = 'ch13-mock-dynamic';
+  const dir = join(root, 'test/snippets');
+  const server = await startServer(name, readServersFile(dir).servers[name], readFileSync(join(dir, `${name}.server`), 'utf8'), root);
+  try {
+    const { output, status } = runCommand(readFileSync(join(dir, 'ch13-21-bruno-dynamic.cmd'), 'utf8'), root);
+    expect(status).toBe(1);
+    expect(output, 'どのリクエストも送り先に届く').not.toContain('ECONNREFUSED');
+    expect(output, 'assert の外れがある').toContain('✕');
+  } finally {
+    await stopServer(server);
+  }
+}, 120_000);

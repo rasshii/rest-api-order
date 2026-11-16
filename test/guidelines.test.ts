@@ -4,6 +4,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { expect, it } from 'vitest';
 import { lintFixtures } from './support/lint.ts';
 
@@ -28,7 +29,7 @@ function protectionCells(text: string): string[] {
   return cells;
 }
 
-/*
+/**
  * 守り方の 1 つずつの形。どれにも合わない書き方は誤りにする
  * (綴りを崩した守り方が、照らされないまま守っていると読めるため)。
  */
@@ -37,6 +38,36 @@ const testPattern = /^テスト: `([^`]+)` の「([^」]+)」$/;
 
 const cells = protectionCells(read('docs/api-design/guidelines.md'));
 const parts = cells.flatMap((cell) => cell.split(' / '));
+
+/** describe.skip・describe.todo・it.skip・it.todo の呼び出し。止めたテストで守っていないので、中の it を数えない。 */
+function isStopped(node: ts.Node): boolean {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    ts.isIdentifier(node.expression.expression) &&
+    ['describe', 'it'].includes(node.expression.expression.text) &&
+    ['skip', 'todo'].includes(node.expression.name.text)
+  );
+}
+
+/**
+ * ファイルの中の it('<名前>', …) の呼び出しの名前。ファイルを文字として探すと、コメントや文字列の中の it と、
+ * describe.skip の中の it でも見つかるので、構文木で呼び出しだけを拾い、止めたスコープの中は数えない。
+ */
+function itNames(path: string): string[] {
+  const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest);
+  const names: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (isStopped(node)) return;
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'it') {
+      const [first] = node.arguments;
+      if (first !== undefined && (ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first))) names.push(first.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return names;
+}
 
 it('ガイドラインの守り方は、どれも lint・テスト・人が見るの形で書かれている', () => {
   expect(cells.length).toBeGreaterThan(0);
@@ -58,7 +89,7 @@ it('ガイドラインのテストは、そのファイルに同じ名前の it 
   expect(tests.length).toBeGreaterThan(0);
   const missing = tests.filter(({ file, name }) => {
     const path = fileURLToPath(new URL(`../${file}`, import.meta.url));
-    return !existsSync(path) || !readFileSync(path, 'utf8').includes(`it('${name}'`);
+    return !existsSync(path) || !itNames(path).includes(name);
   });
   expect(missing).toEqual([]);
 });

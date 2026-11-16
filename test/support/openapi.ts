@@ -1,6 +1,6 @@
 /*
  * 注文 API の仕様 (openapi/ に分けたもの) を読み、テストから使える形にする処理。
- * 仕様のファイルの置き方を変えたら、読み方はここだけを直す。
+ * 仕様の入口のパスを変えるときに直す所は、specEntry の説明に挙げる。
  */
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -11,12 +11,20 @@ import formats from 'ajv-formats';
 import { parse } from 'yaml';
 import { runRedocly } from './redocly.ts';
 
-/*
+/**
+ * 仕様の入口 (リポジトリの root からの相対パス)。テストのコードはこの名前で引く。
+ * 次の 2 つのファイルも同じパスを書く。どちらも JSON でこの名前を引けないので、入口を変えたらそれらも直す。
+ * - package.json の lint と bundle の script
+ * - test/snippets/servers.json の spec (値を作るモックの応答を、どの仕様のスキーマで確かめるか)
+ */
+export const specEntry = 'openapi/openapi.yaml';
+
+/**
  * 分けた仕様を一時のファイルに束ね、内部の参照 ('#/components/...') だけを持つ 1 つの文書にして返す。
  * npm run bundle が作る dist/ は読まない。元を直して束ね直し忘れると、テストが古い仕様を確かめて通るため。
  * entry はリポジトリの root からの相対パス。照合の土台の自己テストは、試しの仕様 (test/fixtures/) を渡す。
  */
-export function loadSpec(entry = 'openapi/openapi.yaml'): unknown {
+export function loadSpec(entry = specEntry): unknown {
   const dir = mkdtempSync(join(tmpdir(), 'rest-api-order-spec-'));
   try {
     const out = join(dir, 'openapi.yaml');
@@ -47,8 +55,11 @@ export function refName(value: unknown, kind: string): string | undefined {
   return value.$ref.startsWith(prefix) ? value.$ref.slice(prefix.length) : undefined;
 }
 
-/** 操作の requestBody と応答 (部品の応答の参照もたどる) の Media Type Object を、置き場の名前とともに返す。 */
-export function mediaTypes(spec: unknown): { where: string; media: unknown }[] {
+/**
+ * 操作の requestBody と応答 (部品の応答の参照もたどる) の Media Type Object を、置き場の名前とともに返す。
+ * components/responses に無い名前を指す応答の参照は、その応答の例を照らさずに抜けないよう、problems に足す。
+ */
+export function mediaTypes(spec: unknown, problems: string[] = []): { where: string; media: unknown }[] {
   const found: { where: string; media: unknown }[] = [];
   const paths = isRecord(spec) ? spec.paths : undefined;
   for (const [path, item] of entries(paths)) {
@@ -60,6 +71,8 @@ export function mediaTypes(spec: unknown): { where: string; media: unknown }[] {
       }
       for (const [code, response] of entries(isRecord(operation) ? operation.responses : undefined)) {
         const resolved = resolveResponse(spec, response);
+        const name = refName(response, 'responses');
+        if (name !== undefined && !isRecord(resolved)) problems.push(`${where} の ${code} が、components/responses に無い ${name} を指す`);
         for (const [type, media] of entries(isRecord(resolved) ? resolved.content : undefined)) {
           found.push({ where: `${where} の ${code} の ${type}`, media });
         }
@@ -86,7 +99,7 @@ function rebase(value: unknown): unknown {
   );
 }
 
-/*
+/**
  * 仕様の components/schemas の部品を JSON Schema 2020-12 の検証器に登録する。部品の名前で検証の関数を引く byName と、
  * 仕様の中のスキーマ (部品への '#/components/schemas/<名前>' の参照を含んでよい) をコンパイルする compile を返す。
  * 仕様の文書は JSON Schema ではない (openapi・paths などを持つ) ので、components/schemas だけを持つ文書に包んで登録する。
@@ -108,9 +121,4 @@ export function componentsValidator(spec: unknown): { byName: (name: string) => 
     },
     compile: (schema) => ajv.compile(rebase(schema) as object),
   };
-}
-
-/** 部品の名前で検証の関数を返す (componentsValidator の byName)。 */
-export function schemaValidator(spec: unknown): (name: string) => ValidateFunction {
-  return componentsValidator(spec).byName;
 }

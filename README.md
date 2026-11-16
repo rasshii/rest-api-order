@@ -2,7 +2,7 @@
 
 [REST API 設計・実装ガイド](https://notes.rewheel.dev/docs/rest-api/) のサンプルリポジトリです。EC サイトの注文 API を、要件・ドメインモデル・OpenAPI の仕様・モックの順に作り、ガイドの第 2 部から TypeScript で実装します。
 
-このリポジトリには、章ごとに tag を付けています。tag `rest-NN` は、第 NN 章まで読んだ時点のリポジトリです。
+このリポジトリには、章ごとに tag を付けています。tag `rest-NN` は、第 NN 章まで読んだ時点のリポジトリです。公開の後に直したときは、直した章と、その直しを含む後の章に `rest-NN-r2` を付けます (もう一度直したら `rest-NN-r3`、以後も番号を 1 つずつ増やします)。同じ章に r の付いた tag があるときは、番号のいちばん大きい tag が、その章の今の状態です。
 
 ## 構成
 
@@ -23,7 +23,7 @@
 | `bruno/` | 受け入れ条件のうち、モックで確かめられるものを 1 つずつリクエストにした Bruno のコレクション (OpenCollection YAML、第 13 章) |
 | `docs/getting-started.md` | 注文 API を使ってアプリを作る人が、モックを起動して呼ぶまでの手順と、受け入れ条件をモックで確かめられるかの表 |
 | `test/acceptance.test.ts` | 受け入れ条件のテスト。中身は、注文の API を実装するときに書く |
-| `test/requirements.test.ts` | 受け入れ条件の文書と、受け入れ条件のテストの名前がそろっていることを確かめるテスト |
+| `test/requirements.test.ts` | 受け入れ条件の文書と、受け入れ条件のテストの名前がそろっていて、Given が引く受け入れ条件が見出しにあることを確かめるテスト |
 | `test/glossary.test.ts` | `docs/` の文書と仕様に、用語集の使わない語が無く、lint の規則が用語集の使わない語をどれも探すことを確かめるテスト |
 | `test/tax-calculation.test.ts` | 消費税額の計算例が、ドメインモデルの求め方と合っていることを確かめるテスト |
 | `test/operations.test.ts` | ユースケースから操作までの対応表が、要件・モデル・エンドポイントの文書と食い違わないことを確かめるテスト |
@@ -32,18 +32,34 @@
 | `test/openapi.test.ts` | 仕様の操作・キー・名前付きの例が、対応表・表現の決まり・例のファイルと食い違わず、名前付きの例が仕様のスキーマに合うことを確かめるテスト |
 | `test/lint.test.ts` | lint の規則が、規則の名前のディレクトリに置いた落ちる例 (`test/fixtures/lint/`) でその規則だけを報告し、土台の仕様には何も報告しないことを確かめるテスト |
 | `test/guidelines.test.ts` | ガイドラインの守り方の列が、lint の落ちる例と、実在するテストを指すことを確かめるテスト |
-| `test/bruno.test.ts` | Bruno のコレクションが、受け入れ条件の文書と、始めるための手順の受け入れ条件の表にそろっていて、例の商品 ID の表の商品 ID が例にあることを確かめるテスト |
+| `test/bruno.test.ts` | Bruno のコレクションが、受け入れ条件の文書と、始めるための手順の受け入れ条件の表にそろっていて、例の商品 ID の表の商品 ID が例と前提の商品に合い、環境の送り先のポートが記事の例を返すモックのポートで、値を作るモックへ送ると届いた上で assert で落ちることを確かめるテスト |
 | `test/swagger-ui.test.ts` | Swagger UI の配信のサーバーが配る仕様の servers の先頭が、記事の例のモックを指すことを確かめるテスト |
 | `test/snippets/` | 記事に載せた curl とコマンドと、その結果の期待値 |
 | `test/snippets.test.ts` | `test/snippets/` の curl とコマンドを実行し、出力を期待値と比べるテスト |
-| `test/support/` | 上のテストが使う処理 (記事の例の実行と比較、仕様の読み込みとスキーマでの検証) |
+| `test/support/` | 上のテストが使う処理 (記事の例の実行と比較、仕様の読み込みとスキーマでの検証、Redocly CLI の呼び出しと lint の落ちる例の回し方、文書の表の読み方) |
 | `test/harness.test.ts` | 実行と比較の処理のテスト (`test/fixtures/` の試しのファイルを使う) |
+| `test/tools.test.ts` | `tools/` のサーバーが、本文を受け取る途中で切れたリクエストの後も応答することと、商品のサーバーが受け付けるリクエストの対象と `Content-Type` の形を確かめるテスト |
 
 ## 動かすのに要るもの
 
 - Node.js 26 (`.nvmrc` に書いてあります)
 - curl
-- bash と find (テストが使います)。macOS と Linux のシェルで動かします。Windows では WSL の中で動かしてください
+- bash と find と ps (テストが使います)。macOS と Linux のシェルで動かします。Windows では WSL の中で動かしてください
+
+## 取り出し方
+
+```bash
+git clone https://github.com/rasshii/rest-api-order.git
+cd rest-api-order
+
+# 章の tag の一覧
+git tag --list 'rest-*'
+
+# 読み終えた章の tag に切り替える (この例は第 2 章。r の付いた tag があれば、番号のいちばん大きいもの)
+git switch --detach rest-02-r2
+```
+
+`--detach` は、branch ではなく tag の指す commit をそのまま取り出す指定です。そこから手を加えるときは、`git switch -c <branch の名前>` で branch を作ってください。
 
 ## 動かし方
 
@@ -78,6 +94,8 @@ npm run docs:build
 `openapi/` の仕様を直したら、`npm run bundle` を回してから Swagger UI を読み込み直してください。`dist/` はリポジトリに置かない、束ねた出力の置き場です。
 
 テストは、記事と同じポートでサーバーを起動します。同じポートで別のサーバーが動いていると、テストは失敗にして止まります。
+
+依存のパッケージ (swagger-ui-dist など) には、`npm ci` のときに利用の統計を scarf.sh へ送る `@scarf/scarf` が入っています。`package.json` の `scarfSettings` で、送らない設定にしています。
 
 ## ライセンス
 

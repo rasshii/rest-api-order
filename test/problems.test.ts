@@ -7,6 +7,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { rows } from './support/markdown.ts';
+import { isRecord } from './support/openapi.ts';
 
 interface TypeRow {
   type: string;
@@ -30,10 +32,6 @@ interface FailureRow {
 
 function read(path: string): string {
   return readFileSync(fileURLToPath(new URL(`../${path}`, import.meta.url)), 'utf8');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isText(value: unknown): value is string {
@@ -74,31 +72,11 @@ const jsonPointer = /^(\/([^/~]|~[01])*)*$/;
 const memberChecks: Record<string, (value: unknown) => boolean> = {
   errors: (value) =>
     Array.isArray(value) &&
-    value.length > 0 &&
+    value.length === 1 &&
     value.every((error) => isRecord(error) && Object.keys(error).sort().join() === 'detail,pointer' && typeof error.pointer === 'string' && jsonPointer.test(error.pointer) && isText(error.detail)),
   productIds: (value) => Array.isArray(value) && value.length > 0 && value.every(isText) && new Set(value).size === value.length,
   trackingId: isText,
 };
-
-/** header の行の表の本体 (見出しと区切りの行の次から、空行の前まで)。形の合わない行を数えられるよう、正規表現で拾う前の行を返す。 */
-function tableLines(header: string): string[] {
-  const lines = problemsDoc.split(/\r?\n/);
-  const start = lines.indexOf(header);
-  if (start < 0) return [];
-  const end = lines.indexOf('', start);
-  return lines.slice(start + 2, end < 0 ? undefined : end);
-}
-
-/** 行を pattern で拾い、拾えない行は problems に足す。拾えない行が黙って抜けないよう、形の確かめと一緒に行う。 */
-function rows<T>(header: string, pattern: RegExp, toRow: (match: RegExpExecArray) => T, problems: string[]): T[] {
-  const lines = tableLines(header);
-  if (lines.length === 0) problems.push(`表 ${header} が無いか、行が無い`);
-  return lines.flatMap((line) => {
-    const match = pattern.exec(line);
-    if (match === null) problems.push(`形の合わない行: ${line}`);
-    return match === null ? [] : [toRow(match)];
-  });
-}
 
 const typeHeader = '| 型 | ステータスコード | 題 | 使う場面 | 拡張メンバー | 例 |';
 const typePattern = /^\| `([^`]+)` \| (\d{3}) \| `([^`]+)` \| [^|]+ \| (なし|`[a-zA-Z]+`(?:・`[a-zA-Z]+`)*) \| `([a-z-]+\.json)` \|$/;
@@ -112,19 +90,20 @@ const typeShape: string[] = [];
 const memberShape: string[] = [];
 const failureShape: string[] = [];
 const typeRows = rows<TypeRow>(
+  problemsDoc,
   typeHeader,
   typePattern,
   (m) => ({ type: m[1], status: Number(m[2]), title: m[3], members: m[4] === 'なし' ? [] : m[4].replaceAll('`', '').split('・'), example: m[5] }),
   typeShape,
 );
-const memberRows = rows<MemberRow>(memberHeader, memberPattern, (m) => ({ member: m[1], term: m[2], type: m[3] }), memberShape);
-const failureRows = rows<FailureRow>(failureHeader, failurePattern, (m) => ({ useCase: m[1], type: m[2], status: Number(m[3]) }), failureShape);
+const memberRows = rows<MemberRow>(problemsDoc, memberHeader, memberPattern, (m) => ({ member: m[1], term: m[2], type: m[3] }), memberShape);
+const failureRows = rows<FailureRow>(problemsDoc, failureHeader, failurePattern, (m) => ({ useCase: m[1], type: m[2], status: Number(m[3]) }), failureShape);
 
-/*
+/**
  * use-cases.md の別の流れを、「注文する 2a」のようにユースケースの名前と手順の番号で返す。
- * 「### 別の流れ」の節の行は、決めた形 (- **2a** …) で拾えなければ problems に足す。書き方の違う 1 行が黙って抜けると、
- * その流れが失敗の一覧に無くても 6 本目が通るため。同じ理由で、ユースケースの見出しの下に無い別の流れの節、
- * 「別の流れ」を含むのに形の違う見出し、節の外にある別の流れの形の行も、形の崩れとして足す。
+ * 決めた形 (「## ユースケース: 」の下の「### 別の流れ」の節の「- **2a** …」の行) で拾えない行と見出しは、problems に足す。
+ * 書き方の違う 1 行が黙って抜けると、その流れが失敗の一覧に無くても 6 本目が通るため。
+ * 同じ別の流れが 2 回あるかは、返した一覧で 6 本目が確かめる。
  */
 function alternateFlows(problems: string[]): string[] {
   let name = '';
@@ -138,7 +117,8 @@ function alternateFlows(problems: string[]): string[] {
       return [];
     }
     if (!inFlows) {
-      if (/^\s*[-*] \*\*\d+[a-z]\*\*/.test(line)) problems.push(`別の流れの節の外にある別の流れの行: ${line}`);
+      // 箇条の印は -・*・+ と番号 (1. や 1))。印の後の空白の数は問わない。
+      if (/^\s*([-*+]|\d+[.)])\s+\*\*\d+[a-z]\*\*/.test(line)) problems.push(`別の流れの節の外にある別の流れの行: ${line}`);
       return [];
     }
     if (line === '') return [];
@@ -148,11 +128,12 @@ function alternateFlows(problems: string[]): string[] {
   });
 }
 
-/** 値か、その中の配列の要素とオブジェクトの値のどこかに null があるか。 */
-function hasNull(value: unknown): boolean {
-  if (value === null) return true;
-  if (Array.isArray(value)) return value.some(hasNull);
-  return isRecord(value) && Object.values(value).some(hasNull);
+/** 値の中の null の位置を、JSON Pointer で返す。どこを直せばよいかを、落ちたときの文に出すため。 */
+function nullPointers(value: unknown, pointer = ''): string[] {
+  if (value === null) return [pointer];
+  if (Array.isArray(value)) return value.flatMap((item, index) => nullPointers(item, `${pointer}/${index}`));
+  if (!isRecord(value)) return [];
+  return Object.entries(value).flatMap(([key, item]) => nullPointers(item, `${pointer}/${key.replaceAll('~', '~0').replaceAll('/', '~1')}`));
 }
 
 /** 用語集の語の名前から code を引く表。 */
@@ -186,7 +167,7 @@ it('問題の型の表の行はどれも決めた形で書かれ、例のファ�
   expect(problems).toEqual([]);
 });
 
-it('例の type・title・status は表の行と同じで、例は行の拡張メンバーをすべて持ち、ほかには RFC 9457 の type・title・status・detail だけを持ち、null が無い', () => {
+it('例の type・title・status は表の行と同じで、detail は空でない文字列で、例は行の拡張メンバーをすべて持ち、ほかには RFC 9457 の type・title・status・detail だけを持ち、null が無い', () => {
   const problems: string[] = [];
   for (const row of typeRows) {
     const example = examples.get(row.example);
@@ -195,10 +176,11 @@ it('例の type・title・status は表の行と同じで、例は行の拡張�
     if (example.type !== row.type) problems.push(`${where}: type が ${JSON.stringify(example.type)} で、表の ${row.type} と違う`);
     if (example.title !== row.title) problems.push(`${where}: title が ${JSON.stringify(example.title)} で、表の ${row.title} と違う`);
     if (example.status !== row.status) problems.push(`${where}: status が ${JSON.stringify(example.status)} で、表の ${row.status} と違う`);
+    if ('detail' in example && !isText(example.detail)) problems.push(`${where}: detail が ${JSON.stringify(example.detail)} で、空でない文字列でない`);
     const keys = Object.keys(example);
     for (const key of keys.filter((key) => !standardMembers.includes(key) && !row.members.includes(key))) problems.push(`${where}: 表に無いメンバー ${key}`);
     for (const member of row.members.filter((member) => !keys.includes(member))) problems.push(`${where}: 拡張メンバー ${member} が無い`);
-    if (hasNull(example)) problems.push(`${where}: null がある`);
+    for (const pointer of nullPointers(example)) problems.push(`${where}: ${pointer} が null`);
   }
   expect(problems).toEqual([]);
 });
@@ -240,7 +222,7 @@ it('例の拡張メンバーの値は、そのメンバーの決まりに合い�
   expect(problems).toEqual([]);
 });
 
-it('失敗の一覧の行とユースケースの別の流れの行はどれも決めた形で書かれ、別の流れはどれも失敗の一覧にちょうど 1 回あり、一覧の型とステータスコードの組は問題の型の表にあり、表の型はどれも一覧で使う', () => {
+it('失敗の一覧の行とユースケースの別の流れの行はどれも決めた形で書かれ、別の流れは use-cases.md に 1 回ずつで、どれも失敗の一覧にちょうど 1 回あり、一覧の型とステータスコードの組は問題の型の表にあり、表の型はどれも一覧で使う', () => {
   const problems = [...failureShape];
   const flows = alternateFlows(problems);
   if (flows.length === 0) problems.push('use-cases.md に別の流れが無い');

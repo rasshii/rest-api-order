@@ -27,6 +27,6 @@ tags:
 paths:
   /orders:
     $ref: paths/orders.yaml
-  # split はファイル名にパスの変数の {} を残すが、Path Item の $ref は URI の形にする (OpenAPI 3.1.2 の MUST) ので、{} を外した名前にした。
+  # Path Item の $ref は URI の形にする (OpenAPI 3.1.2 の MUST) ので、ファイル名にはパスの変数の {} を入れない。
   /orders/{orderId}:
     $ref: paths/orders_orderId.yaml

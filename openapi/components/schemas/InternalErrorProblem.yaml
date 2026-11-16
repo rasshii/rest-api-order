@@ -13,4 +13,5 @@ allOf:
         const: 500
       trackingId:
         type: string
+        minLength: 1
         description: 追跡 ID。同じ値をサーバーのログにも残す。問い合わせのときに伝える。

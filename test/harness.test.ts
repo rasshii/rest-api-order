@@ -4,12 +4,13 @@
  * 試しのファイルを test/snippets/ に置かないのは、記事のどの例にも当たらないファイルとして、
  * ガイドの側の照合が失敗にするため。
  */
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { baseFixture, fixtureDir } from './support/lint.ts';
 import { loadSpec } from './support/openapi.ts';
 import { normalizeOutput } from './support/replacements.ts';
 import { parseCurlRequest, parseCurlResponse, responseChecker } from './support/response-schema.ts';
@@ -22,12 +23,14 @@ import {
   findServersFileProblems,
   lastLine,
   listSnippets,
+  groupMembers,
   liveGroupMembers,
   portsOfCurl,
   signalGroup,
   readServersFile,
   runCommand,
   runCurl,
+  ServerPool,
   startServer,
   stopServer,
   valueServerProblems,
@@ -38,15 +41,6 @@ function spawnGroup(script: string): number {
   const child = spawn('bash', ['-c', script], { detached: true, stdio: 'ignore' });
   if (child.pid === undefined) throw new Error(`起動できない: ${script}`);
   return child.pid;
-}
-
-/** プロセスグループのメンバーの PID と、ps の状態。 */
-function groupStates(pgid: number): { pid: number; stat: string }[] {
-  return spawnSync('ps', ['-A', '-o', 'pid=,pgid=,stat='], { encoding: 'utf8' })
-    .stdout.split('\n')
-    .map((line) => line.trim().split(/\s+/))
-    .filter(([, group, stat]) => Number(group) === pgid && stat !== undefined)
-    .map(([pid, , stat]) => ({ pid: Number(pid), stat }));
 }
 
 /** イベントループに戻らずに、条件が成り立つまで (最長 timeoutMs) 待つ。Node が子を回収しないように、同期で待つ。 */
@@ -186,6 +180,12 @@ describe('出力のそろえ方', () => {
     expect(portsOfCurl("curl -s -w '\\n%{http_code}\\n' http://localhost:4010/orders")).toEqual([4010]);
   });
 
+  it('ポートを省いた URL はスキームの既定のポートで読み、Referer やプロキシの値の URL は送り先に数えない', () => {
+    expect(portsOfCurl('curl -s http://localhost/orders')).toEqual([80]);
+    expect(portsOfCurl('curl -s https://127.0.0.1/orders')).toEqual([443]);
+    expect(portsOfCurl('curl -s -e http://localhost:3999/ -x http://127.0.0.1:3128 http://localhost:3904/orders')).toEqual([3904]);
+  });
+
   it('ヘッダの値の中の URL のポートは、接続するポートに数えない', () => {
     const preflight = "curl -s -i -X OPTIONS http://127.0.0.1:3904/orders \\\n  -H 'Origin: http://localhost:3903'";
     expect(portsOfCurl(preflight)).toEqual([3904]);
@@ -214,11 +214,25 @@ describe('コマンドの実行', () => {
   it('GitHub Actions の環境変数があっても、Redocly CLI の出力に色の符号が付かない', () => {
     vi.stubEnv('CI', 'true');
     vi.stubEnv('GITHUB_ACTIONS', 'true');
+    // 手元に NO_COLOR があると、runCommand が NO_COLOR を渡さなくても色が付かず、確かめにならないので外す。
+    vi.stubEnv('NO_COLOR', undefined);
     try {
-      const { output, status } = runCommand('npx redocly lint test/fixtures/lint/valid.yaml', root);
+      const { output, status } = runCommand(`npx redocly lint ${fixtureDir}/${baseFixture}`, root);
       expect(status).toBe(0);
-      expect(output).toContain('validating test/fixtures/lint/valid.yaml...');
+      expect(output).toContain(`validating ${fixtureDir}/${baseFixture}...`);
       expect(output.includes('\u001b[')).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+describe('プロセスグループのメンバー', () => {
+  it('ps を起こせないときは、その理由を例外の文に入れる', () => {
+    // ps の無い PATH で呼ぶ。理由を捨てると、何が起きたか分からない「ps が失敗した: 」だけが残る。
+    vi.stubEnv('PATH', '/nonexistent');
+    try {
+      expect(() => liveGroupMembers(process.pid)).toThrow(/ENOENT/);
     } finally {
       vi.unstubAllEnvs();
     }
@@ -280,8 +294,16 @@ describe('サーバーとポート', () => {
       const result = runCurl(readFileSync(`${fixtures}ch00-get.curl`, 'utf8'), root);
       expect(normalizeOutput(result.stdout)).toBe(readFileSync(`${fixtures}ch00-get.out`, 'utf8'));
       expect(lastLine(result.stdout)).toBe('200');
+    } finally {
+      await stopServer(server);
+    }
+    await expect(assertPortFree(port)).resolves.toBeUndefined();
+  });
+
+  it('テストの curl は、curl の版に関わらず決まった User-Agent を送る', async () => {
+    const server = await startServer('ch00-web', { port, ready: { http: '/' } }, `node test/fixtures/server.ts ${port}`, root);
+    try {
       /*
-       * テストの curl は、curl の版に関わらず決まった User-Agent を送る。
        * 素の curl の値と区別できる値で、設定ファイルの仕組みそのものを確かめる (curl が 8.18.0 の機では、
        * 既定の値で確かめても、仕組みが効いていなくても通ってしまう)。
        */
@@ -290,7 +312,6 @@ describe('サーバーとポート', () => {
     } finally {
       await stopServer(server);
     }
-    await expect(assertPortFree(port)).resolves.toBeUndefined();
   });
 
   it('起動したサーバーのプロセスグループには生きたメンバーがあり、止めると無くなる', async () => {
@@ -310,7 +331,7 @@ describe('サーバーとポート', () => {
     // 先頭のプロセスに SIGTERM を送ってから、イベントループに戻らずに待つと、先頭は Z のまま残る (Node が回収しないため)。
     const pgid = spawnGroup('exec sleep 30');
     process.kill(-pgid, 'SIGTERM');
-    expect(waitSync(() => groupStates(pgid).length > 0 && groupStates(pgid).every((m) => m.stat.startsWith('Z'))), '先頭が Z になる').toBe(true);
+    expect(waitSync(() => groupMembers(pgid).length > 0 && groupMembers(pgid).every((m) => m.stat.startsWith('Z'))), '先頭が Z になる').toBe(true);
     expect(liveGroupMembers(pgid)).toEqual([]);
     if (process.platform === 'darwin') {
       // macOS の kill(2) は、この状態のグループに EPERM を返す。signalGroup はそれを止めた扱いにする。
@@ -324,7 +345,7 @@ describe('サーバーとポート', () => {
     // 背景の sleep を少し長くするのは、bash が exec より前にそれを回収しないため。
     const pgid = spawnGroup('sleep 0.3 & exec sleep 30');
     try {
-      expect(waitSync(() => groupStates(pgid).some((m) => m.pid !== pgid && m.stat.startsWith('Z'))), 'Z のメンバーができる').toBe(true);
+      expect(waitSync(() => groupMembers(pgid).some((m) => m.pid !== pgid && m.stat.startsWith('Z'))), 'Z のメンバーができる').toBe(true);
       expect(liveGroupMembers(pgid)).toEqual([pgid]);
     } finally {
       process.kill(-pgid, 'SIGKILL');
@@ -341,6 +362,75 @@ describe('サーバーとポート', () => {
     } finally {
       await stopServer(server);
     }
+  });
+
+  it('起動の条件が成り立った直後に起動のコマンドが終わっていれば、孫のプロセスまで止めてから例外にする', async () => {
+    /*
+     * bash は ready を出してすぐ終わり、後ろで起こした node だけが残る。node が待ち受けるのは例外より後のことがあるので、
+     * 例外の直後に空きを見ると、止めていない node を見逃す。例外の後は 2 秒待ってから、1 度だけ空きを見る
+     * (待ち受けた node は自分からは止まらない)。待つ間に確かめないのは、確かめの待ち受けと重なると node が
+     * EADDRINUSE で終わり、止めていなくても空くため。例外から 2 秒より後に待ち受けるほど遅い機では、止めていなくても通る。
+     * 例外の文まで見るのは、起動を待つ間に終わったときの例外 (その分岐もグループを止める) で通らないようにするため。
+     */
+    await expect(
+      startServer('ch00-web', { port, ready: { output: 'ready' } }, `node test/fixtures/server.ts ${port} & echo ready`, root),
+    ).rejects.toThrow('サーバー ch00-web が起動の直後に終わった');
+    await sleep(2_000);
+    await expect(assertPortFree(port)).resolves.toBeUndefined();
+  }, 10_000);
+});
+
+describe('起動したサーバーの持ち方 (ServerPool)', () => {
+  // 起動と停止の関数を差し替えるので、本物のサーバーは起動しない。名前だけを持つ RunningServer で足りる。
+  const fake = (name: string) => ({ name }) as RunningServer;
+
+  it('同じ名前のサーバーを起動の途中にもう一度頼んでも、1 回しか起動しない', async () => {
+    let calls = 0;
+    let finish: (server: RunningServer) => void = () => {};
+    const pool = new ServerPool(
+      () => {
+        calls++;
+        return new Promise<RunningServer>((resolve) => (finish = resolve));
+      },
+      async () => {},
+    );
+    const first = pool.get('a');
+    const second = pool.get('a');
+    finish(fake('a'));
+    expect(await second).toBe(await first);
+    expect(calls).toBe(1);
+  });
+
+  it('止めるのに 1 つ失敗しても、ほかを止めてから例外にし、持っているサーバーを空にする', async () => {
+    const stopped: string[] = [];
+    const pool = new ServerPool(
+      async (name) => fake(name),
+      async (server) => {
+        if (server.name === 'a') throw new Error('a を止められない');
+        // 止め終わるまで時間のかかるサーバー。失敗を見てすぐに例外にすると、止め終わる前に戻る。
+        await sleep(50);
+        stopped.push(server.name);
+      },
+    );
+    for (const name of ['a', 'b', 'c']) await pool.get(name);
+    await expect(pool.stopAll()).rejects.toThrow('a を止められない');
+    expect(stopped.sort()).toEqual(['b', 'c']);
+    expect(['a', 'b', 'c'].filter((name) => pool.has(name))).toEqual([]);
+  });
+
+  it('起動に失敗したサーバーは止めにかからず、stopAll は例外にしない', async () => {
+    const stopped: string[] = [];
+    const pool = new ServerPool(
+      async () => {
+        throw new Error('起動に失敗');
+      },
+      async (server) => {
+        stopped.push(server.name);
+      },
+    );
+    await expect(pool.get('a')).rejects.toThrow('起動に失敗');
+    await expect(pool.stopAll()).resolves.toBeUndefined();
+    expect(stopped).toEqual([]);
   });
 });
 

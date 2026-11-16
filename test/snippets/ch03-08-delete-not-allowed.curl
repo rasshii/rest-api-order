@@ -1,1 +1,0 @@
-curl -s -i -X DELETE http://localhost:3902/products/p-1

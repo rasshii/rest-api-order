@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { isRecord } from './support/openapi.ts';
 
 interface Operation {
   useCase: string;
@@ -32,10 +33,6 @@ const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const writeKeys = 'aggregateMethod,command,method,operationId,path,useCase';
 const readKeys = 'method,operationId,path,readModel,useCase';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value !== '';
 }
@@ -45,7 +42,7 @@ function isPath(value: unknown): boolean {
   return isText(value) && /^(\/([a-z][a-z0-9-]*|\{[a-z][a-zA-Z0-9]*\}))+$/.test(value);
 }
 
-/*
+/**
  * 対応表の形の崩れを、見つけた順に文で返す。キーを綴り違えると、その項目の照合が黙って抜けるので、知らないキーも崩れとみなす。
  * 状態を変える行は command と aggregateMethod を、読むだけの行は readModel を持つ。
  */
@@ -82,7 +79,7 @@ function shapeProblems(value: unknown): string[] {
 const problems = shapeProblems(raw);
 const parsed: Operation[] = problems.length === 0 ? (raw as { operations: Operation[] }).operations : [];
 
-/*
+/**
  * 対応表の操作。形が崩れると空になり、行ごとに確かめる it が何も確かめずに通る (-t で 1 本だけ回したときも) ので、
  * どの it もこれを通して読み、形の崩れと空をその it の失敗にする。
  */
@@ -106,15 +103,16 @@ function tableRowCount(text: string, header: string): number {
   return lines.slice(start + 2, end < 0 ? undefined : end).length;
 }
 
-/** Markdown の中から、正規表現の 1 つ目の組に当たる文字列を、書いた順に返す。 */
+/** 文書やパスの文字列から、正規表現の 1 つ目の組に当たる文字列を、書いた順に返す。 */
 function captures(text: string, pattern: RegExp): string[] {
   return [...text.matchAll(pattern)].map((match) => match[1]);
 }
 
-/*
+/**
  * ドメインモデルのクラス図で、クラス name の中括弧の中にある行を返す。クラスが無ければ空。
- * Windows の git が改行を CRLF にして取り出しても読めるよう、行の終わりの \r を許す。
- * name は形の確かめを通った英数字だけなので、正規表現に埋めても特別な文字は入らない。
+ * .gitattributes で改行を LF にそろえているが、エディタが CRLF で保存した作業ツリーでも読めるよう、行の終わりの \r を許す。
+ * name と、呼び出し側でメソッドを探す正規表現に埋める methodName は、aggregateMethod の形の確かめ (クラス名.メソッド名) を
+ * 通った英数字だけなので、正規表現の特別な文字は入らない。
  */
 function classMembers(name: string): string[] {
   const block = new RegExp(`^\\s*class ${name} \\{\\r?\\n([\\s\\S]*?)^\\s*\\}`, 'm').exec(model);

@@ -116,18 +116,25 @@ export function curlWords(command: string): string[] {
   return [...joined.matchAll(/'([^']*)'|"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
 }
 
-/** curl のコマンドの、送り先の URL (http か https で始まる語) を返す。ヘッダや本文の中の URL は含まない。 */
+/** 値に URL を取るが、その URL が送り先でない option (Referer・プロキシ)。 */
+const urlValueOptions = ['-e', '--referer', '-x', '--proxy', '--preproxy'];
+
+/**
+ * curl のコマンドの、送り先の URL (http か https で始まる語) を返す。
+ * ヘッダや本文の中の URL と、urlValueOptions の値の URL は含まない。
+ */
 export function curlUrls(command: string): URL[] {
-  return curlWords(command)
-    .filter((word) => /^https?:\/\//.test(word))
+  const words = curlWords(command);
+  return words
+    .filter((word, index) => /^https?:\/\//.test(word) && !urlValueOptions.includes(words[index - 1] ?? ''))
     .map((word) => new URL(word));
 }
 
-/** curl のコマンドが接続する localhost のポートを返す。 */
+/** curl のコマンドが接続する localhost のポートを返す。ポートを省いた URL は、スキームの既定 (http は 80、https は 443)。 */
 export function portsOfCurl(command: string): number[] {
   const ports = curlUrls(command)
     .filter((url) => url.hostname === 'localhost' || url.hostname === '127.0.0.1')
-    .map((url) => Number(url.port));
+    .map((url) => Number(url.port || (url.protocol === 'https:' ? 443 : 80)));
   return [...new Set(ports)];
 }
 
@@ -137,30 +144,33 @@ export function lastLine(text: string): string {
   return lines.at(-1) ?? '';
 }
 
-/*
+/**
  * ポートが使われているかを、127.0.0.1・::1・host を省いた形 (全部のアドレス) の順に待ち受けて確かめる。
  * macOS では、127.0.0.1 だけで待ち受けるサーバー (Prism の既定) があっても、host を省いた待ち受けは成功するので、
- * host を省いた形だけでは、そのサーバーに気づかない。::1 を持たない機 (EADDRNOTAVAIL) では、そのアドレスは空いているとみなす。
+ * host を省いた形だけでは、そのサーバーに気づかない。::1 を持たない機 (EADDRNOTAVAIL) と、IPv6 を使えない機 (EAFNOSUPPORT) では、
+ * そのアドレスは空いているとみなす。
  */
 const probeHosts: (string | undefined)[] = ['127.0.0.1', '::1', undefined];
+const absentAddressCodes = ['EADDRNOTAVAIL', 'EAFNOSUPPORT'];
 
 function probePort(port: number, host: string | undefined): Promise<string | undefined> {
   return new Promise((resolve) => {
     const probe = createServer();
-    probe.once('error', (error: NodeJS.ErrnoException) => resolve(error.code === 'EADDRNOTAVAIL' ? undefined : (error.code ?? 'error')));
+    probe.once('error', (error: NodeJS.ErrnoException) => resolve(absentAddressCodes.includes(error.code ?? '') ? undefined : (error.code ?? 'error')));
     const listening = () => probe.close(() => resolve(undefined));
     if (host === undefined) probe.listen(port, listening);
     else probe.listen(port, host, listening);
   });
 }
 
-/** 指定のポートで待ち受けられることを確かめる。使われていれば例外にする。 */
+/** 指定のポートで待ち受けられることを確かめる。使われているか、ほかの理由 (EACCES など) で待ち受けられなければ例外にする。 */
 export async function assertPortFree(port: number): Promise<void> {
   for (const host of probeHosts) {
     const code = await probePort(port, host);
-    if (code !== undefined) {
+    if (code === 'EADDRINUSE') {
       throw new Error(`ポート ${port} が使われている (${host ?? '全部のアドレス'} で ${code})。同じポートで動いている別のサーバーを止めてから回す`);
     }
+    if (code !== undefined) throw new Error(`ポート ${port} で待ち受けられない (${host ?? '全部のアドレス'} で ${code})`);
   }
 }
 
@@ -203,14 +213,74 @@ export async function startServer(
     }
     await sleep(100);
   }
-  assertAlive(server);
+  /*
+   * 起動の条件が成り立った直後に、起動のコマンドが終わっていることがある (空きを確かめてから待ち受けるまでの間に別の実行が
+   * ポートを取ったときや、コマンドがサーバーを後ろで起こして先に終わったとき)。返さない server は呼び出し側が止めないので、
+   * 孫のプロセスが残らないよう、ここでプロセスグループを止めてから例外にする。
+   */
+  if (server.exited) {
+    if (child.pid !== undefined) signalGroup(child.pid, 'SIGKILL');
+    throw new Error(`サーバー ${name} が起動の直後に終わった:\n${server.output}`);
+  }
   return server;
+}
+
+/**
+ * 起動したサーバーを名前で持ち、同じ名前のサーバーを 2 つ起動しないようにする。
+ * 起動の途中の Promise を持つのは、例が時間切れで終わっても起動は続くので、次の例が同じサーバーをもう 1 つ起動しないようにするため。
+ * 起動と停止の関数を受け取るのは、起動の重なりと停止の失敗を、本物のサーバーなしに harness.test.ts で確かめるため。
+ */
+export class ServerPool {
+  readonly #starting = new Map<string, Promise<RunningServer>>();
+  readonly #start: (name: string) => Promise<RunningServer>;
+  readonly #stop: (server: RunningServer) => Promise<void>;
+
+  constructor(start: (name: string) => Promise<RunningServer>, stop: (server: RunningServer) => Promise<void> = stopServer) {
+    this.#start = start;
+    this.#stop = stop;
+  }
+
+  has(name: string): boolean {
+    return this.#starting.has(name);
+  }
+
+  /** name のサーバーを返す。まだ起動していなければ、起動を始める。 */
+  get(name: string): Promise<RunningServer> {
+    let starting = this.#starting.get(name);
+    if (starting === undefined) {
+      starting = this.#start(name);
+      this.#starting.set(name, starting);
+    }
+    return starting;
+  }
+
+  /**
+   * 持っているサーバーを、すべて同時に止めにかかる。1 つを止めるのに失敗しても、残りは止めてから失敗にする。
+   * 起動に失敗したサーバーは、startServer がプロセスグループを止めていて、その失敗は起動を待った例が報告している。
+   */
+  async stopAll(): Promise<void> {
+    const all = [...this.#starting.values()];
+    this.#starting.clear();
+    const results = await Promise.allSettled(
+      all.map(async (starting) => {
+        const server = await starting.catch(() => undefined);
+        if (server !== undefined) await this.#stop(server);
+      }),
+    );
+    const errors = results.flatMap((result) => (result.status === 'rejected' ? [String(result.reason)] : []));
+    if (errors.length > 0) throw new Error(`サーバーを止められなかった:\n${errors.join('\n')}`);
+  }
 }
 
 async function isReady(server: RunningServer): Promise<boolean> {
   const { ready, port } = server.spec;
   if ('output' in ready) return server.output.includes(ready.output);
   try {
+    /*
+     * IP アドレスでなく localhost に送る。macOS と Node.js 26 で測ると、127.0.0.1 に送ると ::1 だけで待ち受けるサーバーに
+     * 届かず、localhost なら 127.0.0.1 だけで待ち受けるサーバーにも ::1 だけで待ち受けるサーバーにも届いた。
+     * localhost がどのアドレスに解決されるかは、機の設定 (/etc/hosts など) で変わる。
+     */
     await fetch(`http://localhost:${port}${ready.http}`);
     return true;
   } catch {
@@ -222,7 +292,8 @@ async function isReady(server: RunningServer): Promise<boolean> {
 /**
  * 起動した子のプロセスが生きていることを確かめる。
  * 空きを確かめてから待ち受けるまでの間に別の実行がポートを取ると、こちらの子は終わり、
- * 起動の条件と curl は相手のサーバーで成り立ってしまうため、起動の後と例の後に確かめる。
+ * 起動の条件と curl は相手のサーバーで成り立ってしまうため、例の後に確かめる
+ * (起動の直後は、startServer が同じ条件を見て、プロセスグループを止めてから例外にする)。
  */
 export function assertAlive(server: RunningServer): void {
   if (server.exited) {
@@ -261,15 +332,23 @@ export function signalGroup(pid: number, signal: NodeJS.Signals): void {
   }
 }
 
-/** プロセスグループのメンバーのうち、終わっていない (ps の状態が Z でない) ものの PID を返す。 */
-export function liveGroupMembers(pgid: number): number[] {
+/** プロセスグループのメンバーの PID と ps の状態。ps を起こせないか ps が失敗したら、その理由を例外にする。 */
+export function groupMembers(pgid: number): { pid: number; stat: string }[] {
   const result = spawnSync('ps', ['-A', '-o', 'pid=,pgid=,stat='], { encoding: 'utf8' });
-  if (result.status !== 0) throw new Error(`ps が失敗した: ${result.stderr}`);
+  if (result.error) throw new Error(`ps を起こせない: ${result.error.message}`);
+  if (result.status !== 0) throw new Error(`ps が失敗した (終了コード ${result.status}): ${result.stderr}`);
   return result.stdout
     .split('\n')
     .map((line) => line.trim().split(/\s+/))
-    .filter(([, group, stat]) => Number(group) === pgid && stat !== undefined && !stat.startsWith('Z'))
-    .map(([member]) => Number(member));
+    .filter(([, group, stat]) => Number(group) === pgid && stat !== undefined)
+    .map(([pid, , stat]) => ({ pid: Number(pid), stat }));
+}
+
+/** プロセスグループのメンバーのうち、終わっていない (ps の状態が Z でない) ものの PID を返す。 */
+export function liveGroupMembers(pgid: number): number[] {
+  return groupMembers(pgid)
+    .filter((member) => !member.stat.startsWith('Z'))
+    .map((member) => member.pid);
 }
 
 async function isPortFree(port: number): Promise<boolean> {

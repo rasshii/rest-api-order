@@ -5,7 +5,7 @@
  * servers の先頭にモックを足したもの (spec-for-browser.ts)。
  * リクエストのたびに読み直すので、仕様を直したら npm run bundle を回してからブラウザで読み込み直せば反映される。
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';
 import { createRequire } from 'node:module';
@@ -16,7 +16,7 @@ import { specForBrowser } from './spec-for-browser.ts';
 const port = 3903;
 const spec = fileURLToPath(new URL('../../dist/openapi.yaml', import.meta.url));
 
-/*
+/**
  * swagger-ui-dist の index.js は、読み込むとブラウザ向けの bundle まで読み込むので import しない。
  * package.json の場所から、配るファイルのあるディレクトリだけを求める。
  */
@@ -33,7 +33,7 @@ const assets: Record<string, string> = {
   '/favicon-16x16.png': 'image/png',
 };
 
-/*
+/**
  * swagger-ui-dist の swagger-initializer.js の代わりに配る、初期化の script。
  * 読む仕様をこのサーバーの /openapi.yaml にする。Try it out は、既定のまま全メソッドで出す。
  */
@@ -50,12 +50,33 @@ function send(res: ServerResponse, status: number, contentType: string, body: st
   res.end(body);
 }
 
+/**
+ * ファイルを読んで返す。読めなければ 500 と理由を返す。
+ * readFileSync の例外を捕まえないと、この関数の外で処理されないまま、サーバーのプロセスが止まる。
+ */
+function sendFile(res: ServerResponse, file: string, contentType: string): void {
+  let body: Buffer;
+  try {
+    body = readFileSync(file);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? String(error);
+    send(res, 500, 'text/plain; charset=utf-8', `配るファイルを読めません (${code})\n`);
+    return;
+  }
+  send(res, 200, contentType, body);
+}
+
 createServer((req, res) => {
+  // http.Server が渡すリクエストには、url が必ずある (型が省略可なのは、クライアントが受ける応答と型を共用するため)。
+  const target = req.url!;
   /*
-   * リクエストの対象は / で始まるパスとは限らず、*:99999 のように URL として読めないものも届く。
-   * new URL は読めないと例外を投げ、この関数の外で処理されないまま、サーバーのプロセスが止まる。
+   * リクエストの対象は、/ で始まるパス (origin-form) のほかに、http://… の絶対形式 (absolute-form) でも届き、
+   * サーバーは絶対形式も受け付ける (RFC 9112 の 3.2.2)。/ で始まる対象を基準の URL に対して解決すると、// で始まるパスを
+   * 別のホストと読むので、パスには localhost を前に付ける。
+   * *:99999 のように URL として読めないものも届く。new URL は読めないと例外を投げ、この関数の外で
+   * 処理されないまま、サーバーのプロセスが止まるので、読めなければ null を返す URL.parse を使う。
    */
-  const url = URL.parse(`http://localhost${req.url}`);
+  const url = target.startsWith('/') ? URL.parse(`http://localhost${target}`) : URL.parse(target);
   if (url === null) return send(res, 400, 'text/plain; charset=utf-8', 'リクエストの対象を URL として読めません\n');
   const path = url.pathname;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -64,14 +85,16 @@ createServer((req, res) => {
     return;
   }
   if (path === '/openapi.yaml') {
-    // 束ねる前や dist/ を消した後に readFileSync が投げると、サーバーのプロセスが止まるので、先に有無を見る。
-    if (!existsSync(spec)) return send(res, 500, 'text/plain; charset=utf-8', 'dist/openapi.yaml がありません。npm run bundle で作ってください\n');
-    // 束ね直している途中の書きかけのファイルは、YAML として読めないことがある。ここで投げてもプロセスが止まるので、500 にする。
     let body: string;
     try {
       body = specForBrowser(readFileSync(spec, 'utf8'));
     } catch (error) {
-      return send(res, 500, 'text/plain; charset=utf-8', `dist/openapi.yaml を読めません (${(error as Error).message})。npm run bundle で作り直してください\n`);
+      /*
+       * 束ねる前や dist/ を消した後 (ENOENT) と、束ね直している途中の書きかけのファイル (YAML として読めない) で投げる。
+       * 先に existsSync で有無を見ても、見た後に消えたときと ENOENT 以外の誤りでは投げるので、ここで捕まえて 500 にする。
+       */
+      const reason = (error as NodeJS.ErrnoException).code ?? (error as Error).message;
+      return send(res, 500, 'text/plain; charset=utf-8', `dist/openapi.yaml を読めません (${reason})。npm run bundle で作り直してください\n`);
     }
     return send(res, 200, 'application/yaml', body);
   }
@@ -79,7 +102,7 @@ createServer((req, res) => {
   const name = path === '/' ? '/index.html' : path;
   const contentType = assets[name];
   if (contentType === undefined) return send(res, 404, 'text/plain; charset=utf-8', `${path} は見つかりません\n`);
-  send(res, 200, contentType, readFileSync(join(dist, name)));
+  sendFile(res, join(dist, name), contentType);
 }).listen(port, () => {
   console.log(`Swagger UI を http://localhost:${port} で起動しました`);
 });
