@@ -155,8 +155,9 @@ async function isReady(server: RunningServer): Promise<boolean> {
   if ('output' in ready) return server.output.includes(ready.output);
   try {
     /*
-     * IP アドレスでなく localhost に送る。127.0.0.1 に送ると ::1 だけで待ち受けるサーバーに届かず、
-     * localhost なら 127.0.0.1 だけで待ち受けるサーバーにも ::1 だけで待ち受けるサーバーにも届く。
+     * IP アドレスでなく localhost に送る。macOS と Node.js 26 で測ると、127.0.0.1 に送ると ::1 だけで待ち受けるサーバーに
+     * 届かず、localhost なら 127.0.0.1 だけで待ち受けるサーバーにも ::1 だけで待ち受けるサーバーにも届いた。
+     * localhost がどのアドレスに解決されるかは、機の設定 (/etc/hosts など) で変わる。
      */
     await fetch(`http://localhost:${port}${ready.http}`);
     return true;
