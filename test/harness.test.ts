@@ -231,13 +231,19 @@ describe('サーバーとポート', () => {
   });
 
   it('起動の条件が成り立った直後に起動のコマンドが終わっていれば、孫のプロセスまで止めてから例外にする', async () => {
-    // bash は ready を出してすぐ終わり、後ろで起こした node だけがポートを持って残る。
+    /*
+     * bash は ready を出してすぐ終わり、後ろで起こした node だけが残る。node が待ち受けるのは例外より後のことがあるので、
+     * 例外の直後に空きを見ると、止めていない node を見逃す。例外の後は 2 秒待ってから、1 度だけ空きを見る
+     * (待ち受けた node は自分からは止まらない)。待つ間に確かめないのは、確かめの待ち受けと重なると node が
+     * EADDRINUSE で終わり、止めていなくても空くため。例外から 2 秒より後に待ち受けるほど遅い機では、止めていなくても通る。
+     * 例外の文まで見るのは、起動を待つ間に終わったときの例外 (その分岐もグループを止める) で通らないようにするため。
+     */
     await expect(
       startServer('ch00-web', { port, ready: { output: 'ready' } }, `node test/fixtures/server.ts ${port} & echo ready`, root),
-    ).rejects.toThrow('サーバー ch00-web');
-    for (let i = 0; i < 30 && !(await isPortFree(port)); i++) await sleep(100);
+    ).rejects.toThrow('サーバー ch00-web が起動の直後に終わった');
+    await sleep(2_000);
     await expect(assertPortFree(port)).resolves.toBeUndefined();
-  });
+  }, 10_000);
 });
 
 describe('起動したサーバーの持ち方 (ServerPool)', () => {
@@ -293,12 +299,3 @@ describe('起動したサーバーの持ち方 (ServerPool)', () => {
     expect(stopped).toEqual([]);
   });
 });
-
-async function isPortFree(target: number): Promise<boolean> {
-  try {
-    await assertPortFree(target);
-    return true;
-  } catch {
-    return false;
-  }
-}
