@@ -46,7 +46,7 @@ function isJson(contentType: string | undefined): boolean {
 }
 
 /**
- * 本文を文字列で受け取る。受け取る途中で接続が切れたら、応答を返す相手がいないので、接続を閉じて undefined を返す。
+ * 受け取る途中で接続が切れたときは、応答を返す相手がいないので、接続を閉じて undefined を返す。
  * 捕まえないと、この async の関数の外で処理されないまま、サーバーのプロセスが止まる。
  */
 async function receiveBody(req: IncomingMessage, res: ServerResponse): Promise<string | undefined> {
