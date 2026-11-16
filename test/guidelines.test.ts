@@ -39,14 +39,26 @@ const testPattern = /^テスト: `([^`]+)` の「([^」]+)」$/;
 const cells = protectionCells(read('docs/api-design/guidelines.md'));
 const parts = cells.flatMap((cell) => cell.split(' / '));
 
+/** describe.skip・describe.todo・it.skip・it.todo の呼び出し。止めたテストで守っていないので、中の it を数えない。 */
+function isStopped(node: ts.Node): boolean {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isPropertyAccessExpression(node.expression) &&
+    ts.isIdentifier(node.expression.expression) &&
+    ['describe', 'it'].includes(node.expression.expression.text) &&
+    ['skip', 'todo'].includes(node.expression.name.text)
+  );
+}
+
 /**
- * ファイルの中の it('<名前>', …) の呼び出しの名前。ファイルを文字として探すと、コメントや文字列の中の it でも
- * 見つかるので、構文木で呼び出しだけを拾う。it.skip と it.todo は止めたテストで守っていないので、数えない。
+ * ファイルの中の it('<名前>', …) の呼び出しの名前。ファイルを文字として探すと、コメントや文字列の中の it と、
+ * describe.skip の中の it でも見つかるので、構文木で呼び出しだけを拾い、止めたスコープの中は数えない。
  */
 function itNames(path: string): string[] {
   const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest);
   const names: string[] = [];
   const visit = (node: ts.Node): void => {
+    if (isStopped(node)) return;
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'it') {
       const [first] = node.arguments;
       if (first !== undefined && (ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first))) names.push(first.text);
