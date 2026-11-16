@@ -17,7 +17,7 @@
 
 - Node.js 26 (`.nvmrc` に書いてあります)
 - curl
-- bash と find (テストが使います)。macOS と Linux のシェルで動かします。Windows では WSL の中で動かしてください
+- bash と find と ps (テストが使います)。macOS と Linux のシェルで動かします。Windows では WSL の中で動かしてください
 
 ## 取り出し方
 

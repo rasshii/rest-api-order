@@ -192,13 +192,40 @@ export async function stopServer(server: RunningServer, timeoutMs = 10_000): Pro
   await assertPortFree(server.spec.port);
 }
 
-function signalGroup(pid: number, signal: NodeJS.Signals): void {
+/** プロセスグループに信号を送る。グループが無いか、終わったメンバーしか残っていなければ、何もしない。 */
+export function signalGroup(pid: number, signal: NodeJS.Signals): void {
   try {
     process.kill(-pid, signal);
   } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
     // グループのプロセスがすべて終わっていれば ESRCH になる。止める目的は果たしている。
-    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+    if (code === 'ESRCH') return;
+    /*
+     * macOS の kill(2) は、グループの先頭のプロセスが終わって、まだ親 (このテストのプロセス) に回収されていない
+     * (ps の状態が Z の) ときにも EPERM を返す。生きているメンバーが残っていなければ、止める目的は果たしている。
+     */
+    if (code === 'EPERM' && liveGroupMembers(pid).length === 0) return;
+    throw error;
   }
+}
+
+/** プロセスグループのメンバーの PID と ps の状態。ps を起こせないか ps が失敗したら、その理由を例外にする。 */
+export function groupMembers(pgid: number): { pid: number; stat: string }[] {
+  const result = spawnSync('ps', ['-A', '-o', 'pid=,pgid=,stat='], { encoding: 'utf8' });
+  if (result.error) throw new Error(`ps を起こせない: ${result.error.message}`);
+  if (result.status !== 0) throw new Error(`ps が失敗した (終了コード ${result.status}): ${result.stderr}`);
+  return result.stdout
+    .split('\n')
+    .map((line) => line.trim().split(/\s+/))
+    .filter(([, group, stat]) => Number(group) === pgid && stat !== undefined)
+    .map(([pid, , stat]) => ({ pid: Number(pid), stat }));
+}
+
+/** プロセスグループのメンバーのうち、終わっていない (ps の状態が Z でない) ものの PID を返す。 */
+export function liveGroupMembers(pgid: number): number[] {
+  return groupMembers(pgid)
+    .filter((member) => !member.stat.startsWith('Z'))
+    .map((member) => member.pid);
 }
 
 async function isPortFree(port: number): Promise<boolean> {
