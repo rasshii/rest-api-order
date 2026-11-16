@@ -39,7 +39,7 @@ function sendEmpty(res: ServerResponse, status: number, headers: Record<string, 
   res.end();
 }
 
-/** Content-Type が JSON か。パラメータ (; charset=utf-8 など) を除いた type と subtype を、大文字小文字を区別せずに比べる。 */
+/** type と subtype は大文字小文字を区別しない (RFC 9110 の 8.3.1) ので、パラメータ (; charset=utf-8 など) を除いて小文字で比べる。 */
 function isJson(contentType: string | undefined): boolean {
   return contentType?.split(';')[0].trim().toLowerCase() === 'application/json';
 }
@@ -80,7 +80,8 @@ createServer(async (req, res) => {
   const target = req.url!;
   /*
    * リクエストの対象は、/ で始まるパス (origin-form) のほかに、http://… の絶対形式 (absolute-form) でも届き、
-   * サーバーは絶対形式も受け付ける (RFC 9112 の 3.2.2)。パスは localhost を前に付けて、ほかは URL として読む。
+   * サーバーは絶対形式も受け付ける (RFC 9112 の 3.2.2)。/ で始まる対象を基準の URL に対して解決すると、// で始まるパスを
+   * 別のホストと読むので、パスには localhost を前に付ける。
    * *:99999 のように URL として読めないものも届く。new URL は読めないと例外を投げ、この async の関数の外で
    * 処理されないまま、サーバーのプロセスが止まるので、読めなければ null を返す URL.parse を使う。
    */
