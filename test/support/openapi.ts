@@ -12,8 +12,10 @@ import { parse } from 'yaml';
 import { runRedocly } from './redocly.ts';
 
 /**
- * 仕様の入口 (リポジトリの root からの相対パス)。テストはこの名前で引く。package.json の lint と bundle の script も
- * 同じパスを書く。JSON の script はこの名前を引けないので、入口を変えたらその 2 つも直す。
+ * 仕様の入口 (リポジトリの root からの相対パス)。テストのコードはこの名前で引く。
+ * 次の 2 つのファイルも同じパスを書く。どちらも JSON でこの名前を引けないので、入口を変えたらそれらも直す。
+ * - package.json の lint と bundle の script
+ * - test/snippets/servers.json の spec (値を作るモックの応答を、どの仕様のスキーマで確かめるか)
  */
 export const specEntry = 'openapi/openapi.yaml';
 

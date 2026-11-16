@@ -7,7 +7,11 @@ import { parse, stringify } from 'yaml';
 /** Prism は 127.0.0.1 で待ち受けるので、localhost (::1 に解決されうる) でなく 127.0.0.1 と書く。 */
 export const mockServer = { url: 'http://127.0.0.1:3904', description: 'モック (npm run mock)' };
 
-/** servers の先頭にモックを足す。servers が無ければモックだけを置く。キーと値の組の文書でないか、servers があって配列でなければ (null を含む) 例外にする。 */
+/**
+ * servers の先頭にモックを足す (servers が無ければモックだけを置く)。
+ * 仕様がキーと値の組の文書でないか、servers があって配列でなければ (null を含む)、配らずに例外にする。
+ * 配信のサーバーが 500 で知らせ、束ね直しの誤りに気づけるようにするため。
+ */
 export function specForBrowser(text: string): string {
   const document: unknown = parse(text);
   if (typeof document !== 'object' || document === null || Array.isArray(document)) {

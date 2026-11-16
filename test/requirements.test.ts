@@ -40,7 +40,8 @@ it('受け入れ条件の文書とテストが、同じストーリーの同じ�
 it('Given が「」で引く受け入れ条件は、どれも受け入れ条件の見出しの文と同じ', () => {
   // 引いた見出しを直し忘れると、Given が、どこにも無い受け入れ条件を前提にする。
   const headings = criteriaInStories(stories).map((criterion) => criterion.slice(criterion.indexOf(' > ') + ' > '.length));
-  const quoted = [...stories.matchAll(/^- \*\*Given\*\* .*?「([^」]+)」/gm)].map((match) => match[1]);
+  const givenLines = stories.split(/\r?\n/).filter((line) => line.startsWith('- **Given** '));
+  const quoted = givenLines.flatMap((line) => [...line.matchAll(/「([^」]+)」/g)].map((match) => match[1]));
   expect(quoted.length).toBeGreaterThan(0);
   expect(quoted.filter((text) => !headings.includes(text))).toEqual([]);
 });

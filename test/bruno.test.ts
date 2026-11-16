@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { rows as readTable } from './support/markdown.ts';
 import { isRecord } from './support/openapi.ts';
 import { readServersFile, runCommand, startServer, stopServer } from './support/snippets.ts';
 
@@ -120,16 +121,21 @@ it('例の商品 ID の表の商品 ID が、仕様の例のもとの JSON (exam
 });
 
 it('例の商品 ID の表の商品は、受け入れ条件の前提の価格と税率で、注文の例の同じ商品 ID の注文明細にある', () => {
-  // 前提の表 (stories.md) の価格と税率を、注文の例の注文明細の単価と税率と照らす。商品 ID を入れ替えると、単価が食い違う。
+  /*
+   * 前提の表 (stories.md) の価格と税率を、注文の例の注文明細の単価と税率と照らす。商品 ID を入れ替えると、単価が食い違う。
+   * 表が無いか行が無いときと、形の合わない行があるときは、テストを落とす。黙って抜けると、何も照らさずに通るため。
+   */
+  const problems: string[] = [];
   const premises = new Map(
-    [...stories.matchAll(/^\| (\S+) \| ([\d,]+) 円 \| (\d+)% [^|]*\| \d+ \|$/gm)].map((m) => [m[1], { unitPrice: Number(m[2].replaceAll(',', '')), taxRate: Number(m[3]) }]),
+    readTable(stories, '| 商品 | 価格 | 税率 | 在庫 |', /^\| (\S+) \| ([\d,]+) 円 \| (\d+)% [^|]*\| \d+ \|$/, (m) => [m[1], { unitPrice: Number(m[2].replaceAll(',', '')), taxRate: Number(m[3]) }] as const, problems),
   );
+  expect(problems).toEqual([]);
   const order = JSON.parse(readFileSync(join(root, 'examples/orders/order.json'), 'utf8')) as { lines: { productId: string; unitPrice: number; taxRate: number }[] };
-  const rows = tableRows('例の商品 ID')
+  const listed = tableRows('例の商品 ID')
     .map(([name, id]) => ({ name, id: id.replace(/^`|`$/g, '') }))
     .filter((row) => premises.has(row.name));
-  expect(rows.map((row) => row.name).sort()).toEqual([...premises.keys()].sort());
-  for (const { name, id } of rows) {
+  expect(listed.map((row) => row.name).sort()).toEqual([...premises.keys()].sort());
+  for (const { name, id } of listed) {
     const line = order.lines.find((l) => l.productId === id);
     expect(line && { unitPrice: line.unitPrice, taxRate: line.taxRate }, `${name} (${id})`).toEqual(premises.get(name));
   }
